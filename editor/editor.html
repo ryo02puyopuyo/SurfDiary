@@ -2,29 +2,68 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Nikkion 詳細エディタ</title>
+  <title>SurfDiary Editor</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="editor.css"/>
 </head>
 <body>
   <div class="editor-layout">
     <aside class="sidebar-list">
-      <h2>過去のメモ</h2>
-      <div id="memo-list" class="memo-list">
-        <!-- 過去のメモを表示 -->
-      </div>
+      <section class="sidebar-section">
+        <div class="section-header">
+          <h2>Saved Blocks</h2>
+          <span id="block-count" class="section-count">0</span>
+        </div>
+        <div id="memo-list" class="memo-list">
+          <!-- Saved blocks appear here -->
+        </div>
+      </section>
+
+      <section class="sidebar-section documents-section">
+        <div class="section-header">
+          <h2>Documents</h2>
+          <span id="document-count" class="section-count">0</span>
+        </div>
+        <div id="document-list" class="document-list">
+          <!-- Saved documents appear here -->
+        </div>
+      </section>
     </aside>
-    
+
     <main class="main-editor">
       <header>
-        <h1>📝 新しい日記・ノート</h1>
-        <button id="save-btn" class="primary-btn">保存する</button>
+        <div class="editor-title-group">
+          <h1>Markdown Diary</h1>
+          <input id="document-title-input" class="title-input" type="text" placeholder="Document title" />
+        </div>
+        <div class="editor-header-actions">
+          <button id="new-document-btn" class="secondary-btn" type="button">New</button>
+          <button id="insert-selected-btn" class="secondary-btn" type="button">Insert selected</button>
+          <button id="export-document-btn" class="secondary-btn" type="button">Export .md</button>
+          <button id="save-document-btn" class="primary-btn" type="button">Save diary</button>
+        </div>
       </header>
-      <div class="textarea-container">
-        <textarea id="main-textarea" placeholder="今日はどんな発見がありましたか？"></textarea>
+      <div class="editor-body">
+        <section class="draft-panel">
+          <div class="draft-meta">
+            <div id="document-status" class="document-status">Draft ready</div>
+            <div id="attached-count" class="attached-count">0 blocks attached</div>
+          </div>
+          <textarea id="markdown-textarea" placeholder="Write your diary in Markdown. Select blocks on the left and insert them here."></textarea>
+        </section>
+        <section class="attached-panel">
+          <div class="attached-header">
+            <h2>Attached blocks</h2>
+            <button id="clear-attached-btn" class="secondary-btn" type="button">Clear</button>
+          </div>
+          <div id="attached-block-list" class="attached-block-list">
+            <!-- Attached blocks appear here -->
+          </div>
+        </section>
       </div>
     </main>
   </div>
+  <script src="../shared/surfdiary-store.js"></script>
   <script src="editor.js"></script>
 </body>
 </html>
