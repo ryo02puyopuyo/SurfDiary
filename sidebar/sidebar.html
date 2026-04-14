@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="sidebar.css"/>
+  </head>
+  <body>
+    <div class="sidebar-container">
+      <header>
+        <span class="header-title">My Memo</span>
+        <button id="open-editor-btn" class="icon-btn" title="詳細画面で開く">📝 詳しく書く</button>
+      </header>
+      
+      <main>
+        <div class="editor-section">
+          <textarea id="memo-input" placeholder="Type your thoughts here..."></textarea>
+          <div class="editor-actions">
+            <button id="save-url-btn" class="secondary-btn" title="開いているページを保存">📌 ページを保存</button>
+            <button id="save-btn">Save Note</button>
+          </div>
+        </div>
+        
+        <div class="timeline-section">
+          <h2>Timeline</h2>
+          <div id="memo-list" class="memo-list">
+            <!-- Memos will be injected here via JS -->
+          </div>
+        </div>
+      </main>
+    </div>
+    <script src="sidebar.js"></script>
+  </body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "surfdiary",
+  "version": "1.0.0",
+  "description": "A browser-integrated memo and diary tool.",
+  "main": "index.js",
+  "scripts": {
+    "start": "web-ext run",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "web-ext": "^10.1.0"
+  }
+}

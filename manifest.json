@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "SurfDiary",
+  "version": "1.0",
+  "description": "A seamless, browser-integrated memo and diary tool.",
+  "action": {
+    "default_title": "SurfDiary"
+  },
+  "sidebar_action": {
+    "default_panel": "sidebar/sidebar.html",
+    "default_title": "SurfDiary",
+    "open_at_install": true
+  },
+  "permissions": [
+    "storage",
+    "contextMenus",
+    "tabs"
+  ],
+  "background": {
+    "scripts": ["background.js"]
+  }
+}
