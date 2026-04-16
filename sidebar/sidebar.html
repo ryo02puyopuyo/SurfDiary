@@ -8,27 +8,87 @@
   <body>
     <div class="sidebar-container">
       <header>
-        <span class="header-title">My Memo</span>
-        <button id="open-editor-btn" class="icon-btn" title="詳細画面で開く">📝 詳しく書く</button>
+        <div class="header-brand">
+          <span class="header-title">SurfDiary</span>
+          <button id="open-editor-btn" class="icon-btn" title="Open editor">Edit</button>
+        </div>
       </header>
-      
+
       <main>
-        <div class="editor-section">
-          <textarea id="memo-input" placeholder="Type your thoughts here..."></textarea>
-          <div class="editor-actions">
-            <button id="save-url-btn" class="secondary-btn" title="開いているページを保存">📌 ページを保存</button>
-            <button id="save-btn">Save Note</button>
+        <section class="compose-panel">
+          <div class="panel-heading">
+            <h2>Save</h2>
+            <button id="toggle-save-panel-btn" class="icon-btn collapse-btn" type="button" aria-expanded="true" title="Collapse save section">v</button>
           </div>
-        </div>
-        
-        <div class="timeline-section">
-          <h2>Timeline</h2>
-          <div id="memo-list" class="memo-list">
-            <!-- Memos will be injected here via JS -->
+          <div class="compose-body">
+            <div class="editor-section">
+              <textarea id="memo-input" placeholder="Type your thoughts here..."></textarea>
+              <div class="save-target-row">
+                <label for="save-branch-select">Save to</label>
+                <select id="save-branch-select" class="filter-select">
+                  <option value="inbox">Inbox</option>
+                </select>
+              </div>
+              <div class="editor-actions">
+                <button id="save-url-btn" class="secondary-btn" title="Save current page">Save URL</button>
+                <button id="save-btn">Save Note</button>
+              </div>
+            </div>
           </div>
-        </div>
+        </section>
+
+        <hr class="section-divider" />
+
+        <section class="timeline-panel">
+          <div class="timeline-toolbar">
+            <div class="timeline-title-row">
+              <h2>Timeline</h2>
+              <button id="show-all-timeline-btn" class="secondary-btn timeline-action-btn" title="Show all timeline">All Timeline</button>
+              <button id="toggle-timeline-panel-btn" class="icon-btn collapse-btn" type="button" aria-expanded="true" title="Collapse timeline section">v</button>
+            </div>
+
+            <div class="timeline-body">
+              <div class="timeline-controls">
+                <div class="filter-group compact-filter">
+                  <select id="branch-filter" class="filter-select" title="Branch">
+                    <option value="all">All branches</option>
+                  </select>
+                </div>
+
+                <div class="filter-group compact-filter">
+                  <select id="type-filter" class="filter-select" title="Type">
+                    <option value="all">All types</option>
+                    <option value="text">Text</option>
+                    <option value="image">Image</option>
+                    <option value="url">URL</option>
+                  </select>
+                </div>
+
+                <div class="toolbar-actions">
+                  <button id="create-branch-btn" class="secondary-btn" title="Create branch">New Branch</button>
+                  <span id="timeline-count" class="timeline-count">0 items</span>
+                </div>
+              </div>
+
+              <div id="branch-create-row" class="branch-create-row">
+                <label class="branch-create-label" for="new-branch-name">Create branch</label>
+                <input id="new-branch-name" class="branch-create-input" type="text" placeholder="Branch name">
+                <button id="confirm-branch-btn" class="secondary-btn branch-create-btn" type="button">Create</button>
+                <button id="cancel-branch-btn" class="secondary-btn branch-create-btn" type="button">Cancel</button>
+              </div>
+
+              <div class="timeline-section">
+                <div id="memo-list" class="memo-list">
+                  <!-- Memos will be injected here via JS -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
+    <script src="../shared/webext-compat.js"></script>
+    <script src="../shared/surfdiary-store.js"></script>
     <script src="sidebar.js"></script>
   </body>
 </html>

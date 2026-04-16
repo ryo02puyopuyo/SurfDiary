@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SurfDiary Options</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main class="options-shell">
+    <section class="hero">
+      <p class="eyebrow">SurfDiary Options</p>
+      <h1>Local Access Settings</h1>
+      <p class="lede">This page prepares the settings needed for local file access. The controls are wired to storage, but file I/O itself will be added in the next step.</p>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <div>
+          <h2>Local Files</h2>
+          <p>Set the local path and how SurfDiary is allowed to read and write it.</p>
+        </div>
+        <span class="status-pill">Stored locally</span>
+      </div>
+
+      <div class="setting-grid">
+        <div class="setting-row full">
+          <label class="setting-label" for="local-root-path">Local root path</label>
+          <input id="local-root-path" class="setting-input" type="text" placeholder="C:\\Users\\you\\Documents\\SurfDiary" />
+          <p class="setting-hint">This is the folder where documents will be read from and written to later.</p>
+        </div>
+
+        <div class="setting-row">
+          <label class="setting-label" for="local-read-access">Read access</label>
+          <select id="local-read-access" class="setting-select">
+            <option value="off">Off</option>
+            <option value="manual">Manual</option>
+            <option value="automatic">Automatic</option>
+          </select>
+        </div>
+
+        <div class="setting-row">
+          <label class="setting-label" for="local-write-access">Write access</label>
+          <select id="local-write-access" class="setting-select">
+            <option value="off">Off</option>
+            <option value="manual">Manual</option>
+            <option value="automatic">Automatic</option>
+          </select>
+        </div>
+
+        <div class="setting-row full">
+          <label class="setting-label" for="local-transport">File transport</label>
+          <select id="local-transport" class="setting-select">
+            <option value="nativeMessaging">Native Messaging</option>
+            <option value="downloads">Downloads API</option>
+            <option value="manual">Manual export/import</option>
+          </select>
+          <p class="setting-hint">The transport decides how SurfDiary will eventually talk to the local filesystem.</p>
+        </div>
+      </div>
+
+      <div class="panel-footer">
+        <p id="settings-status" class="settings-status">Loading settings...</p>
+        <button id="save-settings-btn" class="primary-btn" type="button">Save settings</button>
+      </div>
+    </section>
+
+    <section class="panel experiment-panel">
+      <div class="panel-header">
+        <div>
+          <h2>Picker Experiment</h2>
+          <p>Try the browser file picker APIs and see whether the dialog remembers the last folder for the same picker id.</p>
+        </div>
+        <span class="status-pill">Test only</span>
+      </div>
+
+      <div class="experiment-grid">
+        <button id="open-save-picker-btn" class="secondary-btn experiment-btn" type="button">Save dialog</button>
+        <button id="open-file-picker-btn" class="secondary-btn experiment-btn" type="button">Open file dialog</button>
+        <button id="open-dir-picker-btn" class="secondary-btn experiment-btn" type="button">Open folder dialog</button>
+        <button id="download-export-btn" class="secondary-btn experiment-btn download-btn" type="button">Downloads export</button>
+        <button id="download-export-auto-btn" class="secondary-btn experiment-btn download-btn" type="button">Downloads export auto</button>
+        <button id="download-export-root-btn" class="secondary-btn experiment-btn download-btn" type="button">Downloads root</button>
+        <button id="download-export-nested-btn" class="secondary-btn experiment-btn download-btn" type="button">Downloads nested</button>
+      </div>
+
+      <div class="experiment-readout">
+        <p id="picker-support" class="settings-status">Checking support...</p>
+        <pre id="picker-log" class="picker-log">No action yet.</pre>
+      </div>
+    </section>
+  </main>
+  <script src="../shared/webext-compat.js"></script>
+  <script src="../shared/surfdiary-config.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

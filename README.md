@@ -1,35 +1,15 @@
-# 企画書：「Web閲覧中に思考を止めないメモ帳」拡張機能
+# SurfDiary
 
-## 1. コンセプト・概要
-**「見つけた瞬間に保存ができ、思考を妨げないブラウザ特化のメモ・日記ツール」**
+このリポジトリの説明文書は `docs/` に整理しています。
 
-ネットサーフィン中の「これ後で使えそう」「この画像保存しておきたい」「今の感情をメモしたい」という欲求に対し、シームレスな保存体験を提供します。また、単なるクリップボードではなく、日記帳や思考の整理ツールとしても機能します。
+## まず読むもの
 
-## 2. コア機能（ユーザー体験）
+- [docs/README.md](/c:/Users/rest0/Desktop/kaihatsu/nikkionfirefox/docs/README.md)
 
-### ① 即座のスクラップ（保存）機能
-*   **テキストの保存**: Web上のテキストを選択し、右クリックメニューから「メモに保存」で即座にクリップ。
-*   **画像の保存**: 画像を右クリックして「画像をメモに保存」（ドラッグ＆ドロップ保存も今後の拡張として検討）。
-*   **URLの保存**: 拡張機能のアイコンをワンクリック（またはショートカットキー）で、現在見ているページのタイトルとURLを保存。
+## 役割分担
 
-### ② 日記・フリーメモ機能（サイドバーUI）
-ブラウザの「サイドバー」領域を活用し、Webを見ながらでも画面の横でメモや日記を書けるようにします。
-*   ポップアップとは違い、ページを切り替えても閉じないため、「調べ物をしながら考えをまとめる」のに最適です。
-*   保存したスクラップ（テキスト・画像・URL）と、手書きのメモ（日記）を時系列で一つの画面に表示します。
-
-### ③ お気に入り・ブックマーク連携
-*   保存したメモやURLに対して「お気に入り（☆）」マークをつけられる機能。
-*   または、ブラウザ標準のブックマーク機能と連動し、特定の「メモ帳専用フォルダ」にURLを自動整理する仕組み。
-
-## 3. 技術的な実装計画 (Firefox Manifest V3)
-
-### 必要な権限 (Permissions)
-*   `contextMenus`: 右クリックメニューに「保存」を追加するため。
-*   `storage`: メモや日記のデータをPCのローカルストレージに保存するため（`browser.storage.local`）。
-*   `activeTab` / `tabs`: 現在のページのURLやタイトルを取得するため。
-*   `bookmarks`: ブックマーク連携機能を実現するため。
-
-### フェーズごとの開発計画
-- **フェーズ1**: サイドバーのUIを作り、簡単なテキストを書いてローカルに保存・表示できる「単純なメモ帳」を作る。
-- **フェーズ2**: `background.js` を追加し、右クリックメニューから選択テキストやURLを保存できるようにする。
-- **フェーズ3**: 画像の保存対応や、お気に入りマーク機能など、細かな使い勝手を向上させる。
+- [docs/overview/SurfDiary_Project_Overview.md](/c:/Users/rest0/Desktop/kaihatsu/nikkionfirefox/docs/overview/SurfDiary_Project_Overview.md)
+- [docs/spec/仕様書.md](/c:/Users/rest0/Desktop/kaihatsu/nikkionfirefox/docs/spec/仕様書.md)
+- [docs/usage/操作方法_備忘録_仕様書.md](/c:/Users/rest0/Desktop/kaihatsu/nikkionfirefox/docs/usage/操作方法_備忘録_仕様書.md)
+- [docs/roadmap/SurfDiary_Roadmap.md](/c:/Users/rest0/Desktop/kaihatsu/nikkionfirefox/docs/roadmap/SurfDiary_Roadmap.md)
+- [docs/notes/ドラッグ実装メモ.md](/c:/Users/rest0/Desktop/kaihatsu/nikkionfirefox/docs/notes/ドラッグ実装メモ.md)

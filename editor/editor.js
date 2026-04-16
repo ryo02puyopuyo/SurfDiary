@@ -1,26 +1,29 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const memoList = document.getElementById('memo-list');
+  const blockList = document.getElementById('memo-list');
   const documentList = document.getElementById('document-list');
   const blockCount = document.getElementById('block-count');
   const documentCount = document.getElementById('document-count');
   const documentTitleInput = document.getElementById('document-title-input');
-  const markdownTextarea = document.getElementById('markdown-textarea');
   const documentStatus = document.getElementById('document-status');
   const attachedCount = document.getElementById('attached-count');
-  const attachedBlockList = document.getElementById('attached-block-list');
+  const documentBody = document.getElementById('document-body');
+  const markdownPreview = document.getElementById('markdown-preview');
   const newDocumentBtn = document.getElementById('new-document-btn');
   const saveDocumentBtn = document.getElementById('save-document-btn');
   const exportDocumentBtn = document.getElementById('export-document-btn');
-  const insertSelectedBtn = document.getElementById('insert-selected-btn');
-  const clearAttachedBtn = document.getElementById('clear-attached-btn');
+  const clearDocumentBtn = document.getElementById('clear-document-btn');
+  const previewObjectUrls = [];
+  const EXPORT_PICKER_ID = 'surfdiary-document-export';
+  const ASSET_DIR_NAME = 'SDAssets';
 
   const state = {
     blocks: [],
     branches: [],
     documents: [],
     currentDocumentId: null,
-    attachedBlockIds: [],
-    isDirty: false
+    currentDocumentBlockIds: [],
+    isDirty: false,
+    draggingBlockId: null
   };
 
   loadState();
@@ -29,8 +32,26 @@ document.addEventListener('DOMContentLoaded', () => {
     documentTitleInput.addEventListener('input', markDirty);
   }
 
-  if (markdownTextarea) {
-    markdownTextarea.addEventListener('input', markDirty);
+  if (documentBody) {
+    documentBody.addEventListener('input', () => {
+      markDirty();
+      renderMarkdownPreview();
+    });
+
+    documentBody.addEventListener('dragover', (event) => {
+      event.preventDefault();
+      documentBody.classList.add('dragover');
+    });
+
+    documentBody.addEventListener('dragleave', () => {
+      documentBody.classList.remove('dragover');
+    });
+
+    documentBody.addEventListener('drop', (event) => {
+      event.preventDefault();
+      documentBody.classList.remove('dragover');
+      handleDocumentDrop(event);
+    });
   }
 
   if (newDocumentBtn) {
@@ -42,20 +63,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (exportDocumentBtn) {
-    exportDocumentBtn.addEventListener('click', exportCurrentDocument);
-  }
-
-  if (insertSelectedBtn) {
-    insertSelectedBtn.addEventListener('click', insertSelectedBlocks);
-  }
-
-  if (clearAttachedBtn) {
-    clearAttachedBtn.addEventListener('click', () => {
-      state.attachedBlockIds = [];
-      markDirty();
-      renderAttachedBlocks();
-      renderBlocks();
+    exportDocumentBtn.addEventListener('click', () => {
+      exportCurrentDocument().catch((error) => {
+        console.error('Failed to export current document', error);
+      });
     });
+  }
+
+  if (clearDocumentBtn) {
+    clearDocumentBtn.addEventListener('click', clearCurrentDocument);
   }
 
   browser.storage.onChanged.addListener((changes, area) => {
@@ -77,12 +93,17 @@ document.addEventListener('DOMContentLoaded', () => {
       state.documents = sortDocuments(documents);
 
       renderCounts();
-      renderBlocks();
-      renderDocuments();
-      renderAttachedBlocks();
-      refreshStatus();
-    } catch (e) {
-      console.error('Failed to load editor state', e);
+      renderBlockList();
+      renderDocumentList();
+
+      if (!state.currentDocumentId && state.documents.length > 0) {
+        loadDocumentIntoEditor(state.documents[0].id);
+      } else {
+        syncEditorState();
+        refreshStatus();
+      }
+    } catch (error) {
+      console.error('Failed to load editor state', error);
     }
   }
 
@@ -112,37 +133,51 @@ document.addEventListener('DOMContentLoaded', () => {
       documentCount.textContent = String(state.documents.length);
     }
     if (attachedCount) {
-      attachedCount.textContent = `${state.attachedBlockIds.length} block${state.attachedBlockIds.length === 1 ? '' : 's'} attached`;
+      attachedCount.textContent = `${state.currentDocumentBlockIds.length} part${state.currentDocumentBlockIds.length === 1 ? '' : 's'} placed`;
     }
   }
 
-  function renderBlocks() {
-    if (!memoList) {
+  function renderBlockList() {
+    if (!blockList) {
       return;
     }
 
-    memoList.innerHTML = '';
+    blockList.innerHTML = '';
 
     if (!state.blocks.length) {
       const empty = document.createElement('div');
       empty.className = 'memo-empty';
-      empty.textContent = 'No saved blocks yet. Save a note, URL, or image from the sidebar first.';
-      memoList.appendChild(empty);
+      empty.textContent = 'No saved blocks yet. Use the sidebar to save notes, URLs, or images.';
+      blockList.appendChild(empty);
       return;
     }
 
     state.blocks.forEach((block) => {
-      memoList.appendChild(createBlockCard(block));
+      blockList.appendChild(createBlockCard(block));
     });
   }
 
   function createBlockCard(block) {
     const el = document.createElement('article');
     el.className = 'memo-item';
-    if (state.attachedBlockIds.includes(block.id)) {
+    el.draggable = true;
+    el.dataset.blockId = block.id;
+
+    if (state.currentDocumentBlockIds.includes(block.id)) {
       el.classList.add('attached');
     }
-    el.dataset.blockId = block.id;
+
+    el.addEventListener('dragstart', (event) => {
+      state.draggingBlockId = block.id;
+      event.dataTransfer.effectAllowed = 'copy';
+      event.dataTransfer.setData('text/plain', block.id);
+      el.classList.add('dragging');
+    });
+
+    el.addEventListener('dragend', () => {
+      state.draggingBlockId = null;
+      renderBlockList();
+    });
 
     const head = document.createElement('div');
     head.className = 'memo-head';
@@ -177,8 +212,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const img = document.createElement('img');
       img.className = 'memo-image';
-      img.src = block.content && block.content.imageUrl ? block.content.imageUrl : '';
       img.alt = getBlockTitle(block);
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      resolveImageSource(block).then((src) => {
+        if (src) {
+          img.src = src;
+        }
+      }).catch((error) => {
+        console.error('Failed to resolve editor image source', error);
+      });
       wrap.appendChild(img);
       body.appendChild(wrap);
     }
@@ -191,45 +234,43 @@ document.addEventListener('DOMContentLoaded', () => {
     const meta = document.createElement('div');
     meta.className = 'memo-meta';
 
-    const metaLeft = document.createElement('div');
-    metaLeft.className = 'memo-meta-left';
+    const leftMeta = document.createElement('div');
+    leftMeta.className = 'memo-meta-left';
 
     const time = document.createElement('span');
     time.textContent = formatDate(block.createdAt);
-    metaLeft.appendChild(time);
-
-    meta.appendChild(metaLeft);
+    leftMeta.appendChild(time);
+    meta.appendChild(leftMeta);
 
     const actions = document.createElement('div');
     actions.className = 'memo-actions';
 
-    const attachBtn = document.createElement('button');
-    attachBtn.type = 'button';
-    attachBtn.className = 'memo-action-btn';
-    attachBtn.textContent = state.attachedBlockIds.includes(block.id) ? 'Attached' : 'Attach';
-    attachBtn.addEventListener('click', () => {
-      toggleAttachedBlock(block.id);
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'memo-action-btn primary';
+    addBtn.textContent = 'Add';
+    addBtn.addEventListener('click', () => {
+      insertBlockIntoDocument(block.id, getTextInsertionPoint());
     });
 
-    const insertBtn = document.createElement('button');
-    insertBtn.type = 'button';
-    insertBtn.className = 'memo-action-btn primary';
-    insertBtn.textContent = 'Insert';
-    insertBtn.addEventListener('click', () => {
-      attachBlock(block.id);
-      insertSnippet(blockToMarkdown(block));
+    const placeBtn = document.createElement('button');
+    placeBtn.type = 'button';
+    placeBtn.className = 'memo-action-btn';
+    placeBtn.textContent = state.currentDocumentBlockIds.includes(block.id) ? 'Placed' : 'Place';
+    placeBtn.addEventListener('click', () => {
+      insertBlockIntoDocument(block.id, getTextInsertionPoint());
     });
 
-    actions.appendChild(attachBtn);
-    actions.appendChild(insertBtn);
+    actions.appendChild(addBtn);
+    actions.appendChild(placeBtn);
     meta.appendChild(actions);
-
     body.appendChild(meta);
     el.appendChild(body);
+
     return el;
   }
 
-  function renderDocuments() {
+  function renderDocumentList() {
     if (!documentList) {
       return;
     }
@@ -239,7 +280,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!state.documents.length) {
       const empty = document.createElement('div');
       empty.className = 'document-empty';
-      empty.textContent = 'No documents yet. Create a diary draft, attach blocks, and save it here.';
+      empty.textContent = 'No documents yet. Create a new document and type directly into it.';
       documentList.appendChild(empty);
       return;
     }
@@ -268,7 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const meta = document.createElement('p');
     meta.className = 'document-meta';
-    meta.textContent = `${document.blockIds.length} linked blocks`;
+    meta.textContent = `${Array.isArray(document.blockIds) ? document.blockIds.length : 0} placed parts`;
     titleWrap.appendChild(meta);
 
     head.appendChild(titleWrap);
@@ -300,8 +341,8 @@ document.addEventListener('DOMContentLoaded', () => {
     exportBtn.type = 'button';
     exportBtn.className = 'memo-action-btn';
     exportBtn.textContent = 'Export';
-    exportBtn.addEventListener('click', () => {
-      exportDocument(document);
+    exportBtn.addEventListener('click', async () => {
+      await exportDocument(document);
     });
 
     const deleteBtn = document.createElement('button');
@@ -319,252 +360,27 @@ document.addEventListener('DOMContentLoaded', () => {
     return el;
   }
 
-  function renderAttachedBlocks() {
-    if (!attachedBlockList) {
-      return;
+  function syncEditorState() {
+    if (documentTitleInput) {
+      const current = state.documents.find((doc) => doc.id === state.currentDocumentId);
+      documentTitleInput.value = current ? current.title || '' : '';
     }
-
-    attachedBlockList.innerHTML = '';
+    if (documentBody) {
+      const current = state.documents.find((doc) => doc.id === state.currentDocumentId);
+      documentBody.value = current ? current.markdown || '' : '';
+    }
+    renderMarkdownPreview();
     renderCounts();
+  }
 
-    const attachedBlocks = getAttachedBlocks();
-
-    if (!attachedBlocks.length) {
-      const empty = document.createElement('div');
-      empty.className = 'attached-empty';
-      empty.textContent = 'No blocks attached yet. Use Attach or Insert from the left panel.';
-      attachedBlockList.appendChild(empty);
+  function renderMarkdownPreview() {
+    if (!markdownPreview) {
       return;
     }
 
-    const chipRow = document.createElement('div');
-    chipRow.className = 'attached-chip-row';
-
-    attachedBlocks.forEach((block) => {
-      const chip = document.createElement('span');
-      chip.className = 'attached-chip';
-      chip.textContent = getBlockTitle(block);
-
-      const remove = document.createElement('button');
-      remove.type = 'button';
-      remove.title = 'Remove';
-      remove.textContent = '×';
-      remove.addEventListener('click', () => {
-        detachBlock(block.id);
-      });
-
-      chip.appendChild(remove);
-      chipRow.appendChild(chip);
-    });
-
-    attachedBlockList.appendChild(chipRow);
-
-    attachedBlocks.forEach((block) => {
-      const item = document.createElement('div');
-      item.className = 'attached-item';
-
-      const itemTitle = document.createElement('h3');
-      itemTitle.className = 'attached-item-title';
-      itemTitle.textContent = getBlockTitle(block);
-      item.appendChild(itemTitle);
-
-      const snippet = document.createElement('p');
-      snippet.className = 'attached-item-snippet';
-      snippet.textContent = getBlockSnippet(block);
-      item.appendChild(snippet);
-
-      const actions = document.createElement('div');
-      actions.className = 'attached-item-actions';
-
-      const insertBtn = document.createElement('button');
-      insertBtn.type = 'button';
-      insertBtn.className = 'memo-action-btn primary';
-      insertBtn.textContent = 'Insert';
-      insertBtn.addEventListener('click', () => {
-        insertSnippet(blockToMarkdown(block));
-      });
-
-      const removeBtn = document.createElement('button');
-      removeBtn.type = 'button';
-      removeBtn.className = 'memo-action-btn';
-      removeBtn.textContent = 'Remove';
-      removeBtn.addEventListener('click', () => {
-        detachBlock(block.id);
-      });
-
-      actions.appendChild(insertBtn);
-      actions.appendChild(removeBtn);
-      item.appendChild(actions);
-      attachedBlockList.appendChild(item);
-    });
-  }
-
-  function getAttachedBlocks() {
-    const byId = new Map(state.blocks.map((block) => [block.id, block]));
-    return state.attachedBlockIds.map((id) => byId.get(id)).filter(Boolean);
-  }
-
-  function getBlockById(blockId) {
-    return state.blocks.find((block) => block.id === blockId) || null;
-  }
-
-  function getBranchName(branchId) {
-    const branch = state.branches.find((item) => item.id === branchId);
-    return branch ? branch.name : 'Unknown';
-  }
-
-  function getBlockTitle(block) {
-    if (!block) {
-      return 'Untitled block';
-    }
-
-    if (block.type === 'url') {
-      return (block.content && block.content.title) || (block.source && block.source.title) || (block.content && block.content.url) || 'URL';
-    }
-
-    if (block.type === 'image') {
-      return (block.content && block.content.text) || (block.source && block.source.title) || 'Image';
-    }
-
-    const text = block.content && typeof block.content.text === 'string' ? block.content.text.trim() : '';
-    return text ? text.split('\n')[0].slice(0, 80) : 'Text block';
-  }
-
-  function getBlockSnippet(block) {
-    if (!block) {
-      return '';
-    }
-
-    if (block.type === 'url') {
-      const title = (block.content && block.content.title) || '';
-      const url = (block.content && block.content.url) || (block.source && block.source.url) || '';
-      return title && url ? `${title}\n${url}` : title || url;
-    }
-
-    if (block.type === 'image') {
-      const imageUrl = (block.content && block.content.imageUrl) || (block.source && block.source.imageUrl) || '';
-      const note = block.content && typeof block.content.text === 'string' ? block.content.text.trim() : '';
-      return note ? `${note}\n${imageUrl}` : imageUrl;
-    }
-
-    const text = block.content && typeof block.content.text === 'string' ? block.content.text.trim() : '';
-    return text || '(empty)';
-  }
-
-  function formatDate(value) {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
-      return 'Unknown date';
-    }
-    return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-  }
-
-  function blockToMarkdown(block) {
-    if (!block) {
-      return '';
-    }
-
-    if (block.type === 'image') {
-      const imageUrl = (block.content && block.content.imageUrl) || (block.source && block.source.imageUrl) || '';
-      const alt = (block.content && block.content.text) || (block.source && block.source.title) || 'image';
-      const note = block.content && typeof block.content.text === 'string' ? block.content.text.trim() : '';
-      const imageLine = `![${escapeMarkdownLabel(alt)}](${imageUrl})`;
-      return note ? `${imageLine}\n\n${note}` : imageLine;
-    }
-
-    if (block.type === 'url') {
-      const title = (block.content && block.content.title) || (block.source && block.source.title) || 'Link';
-      const url = (block.content && block.content.url) || (block.source && block.source.url) || '';
-      return `[${escapeMarkdownLabel(title)}](${url})`;
-    }
-
-    return (block.content && typeof block.content.text === 'string' ? block.content.text : '').trim();
-  }
-
-  function escapeMarkdownLabel(value) {
-    return String(value || '')
-      .replace(/\[/g, '\\[')
-      .replace(/\]/g, '\\]')
-      .replace(/\(/g, '\\(')
-      .replace(/\)/g, '\\)');
-  }
-
-  function attachBlock(blockId) {
-    if (!blockId) {
-      return;
-    }
-
-    if (!state.attachedBlockIds.includes(blockId)) {
-      state.attachedBlockIds = state.attachedBlockIds.concat(blockId);
-      markDirty();
-      renderCounts();
-      renderAttachedBlocks();
-      renderBlocks();
-    }
-  }
-
-  function detachBlock(blockId) {
-    const nextAttached = state.attachedBlockIds.filter((id) => id !== blockId);
-    if (nextAttached.length === state.attachedBlockIds.length) {
-      return;
-    }
-
-    state.attachedBlockIds = nextAttached;
-    markDirty();
-    renderCounts();
-    renderAttachedBlocks();
-    renderBlocks();
-  }
-
-  function toggleAttachedBlock(blockId) {
-    if (state.attachedBlockIds.includes(blockId)) {
-      detachBlock(blockId);
-    } else {
-      attachBlock(blockId);
-    }
-  }
-
-  function insertSnippet(snippet) {
-    if (!markdownTextarea || !snippet) {
-      return;
-    }
-
-    const text = String(snippet).trim();
-    if (!text) {
-      return;
-    }
-
-    const value = markdownTextarea.value;
-    const start = typeof markdownTextarea.selectionStart === 'number' ? markdownTextarea.selectionStart : value.length;
-    const end = typeof markdownTextarea.selectionEnd === 'number' ? markdownTextarea.selectionEnd : value.length;
-    const before = value.slice(0, start);
-    const after = value.slice(end);
-    const prefix = before.length && !/\n\s*$/.test(before) ? '\n\n' : '';
-    const insertText = `${prefix}${text}\n\n`;
-
-    markdownTextarea.value = `${before}${insertText}${after}`;
-    const cursor = before.length + insertText.length;
-    markdownTextarea.selectionStart = cursor;
-    markdownTextarea.selectionEnd = cursor;
-    markdownTextarea.focus();
-    markDirty();
-  }
-
-  function insertSelectedBlocks() {
-    const attachedBlocks = getAttachedBlocks();
-    if (!attachedBlocks.length) {
-      return;
-    }
-
-    const snippets = attachedBlocks
-      .map((block) => blockToMarkdown(block))
-      .filter((snippet) => snippet && snippet.trim());
-
-    if (!snippets.length) {
-      return;
-    }
-
-    insertSnippet(snippets.join('\n\n'));
+    markdownPreview.textContent = documentBody && documentBody.value.trim()
+      ? documentBody.value
+      : 'Markdown preview will appear here.';
   }
 
   function markDirty() {
@@ -593,31 +409,571 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function createNewDocument() {
     state.currentDocumentId = null;
-    state.attachedBlockIds = [];
+    state.currentDocumentBlockIds = [];
     state.isDirty = false;
+
     if (documentTitleInput) {
       documentTitleInput.value = '';
     }
-    if (markdownTextarea) {
-      markdownTextarea.value = '';
+    if (documentBody) {
+      documentBody.value = '';
     }
+
     renderCounts();
-    renderAttachedBlocks();
-    renderBlocks();
-    renderDocuments();
+    renderBlockList();
+    renderMarkdownPreview();
     refreshStatus();
+  }
+
+  function clearCurrentDocument() {
+    state.currentDocumentBlockIds = [];
+    if (documentBody) {
+      documentBody.value = '';
+    }
+    markDirty();
+    renderCounts();
+    renderBlockList();
+    renderMarkdownPreview();
+  }
+
+  function insertBlockIntoDocument(blockId, cursorIndex) {
+    if (!blockId || !documentBody) {
+      return;
+    }
+
+    const block = getBlockById(blockId);
+    if (!block) {
+      return;
+    }
+
+    const snippet = blockToMarkdown(block).trim();
+    if (!snippet) {
+      return;
+    }
+
+    const value = documentBody.value;
+    const selectionStart = typeof cursorIndex === 'number'
+      ? cursorIndex
+      : (typeof documentBody.selectionStart === 'number' ? documentBody.selectionStart : value.length);
+    const selectionEnd = typeof documentBody.selectionEnd === 'number' ? documentBody.selectionEnd : selectionStart;
+    const before = value.slice(0, selectionStart);
+    const after = value.slice(selectionEnd);
+    const needsPrefix = before.length > 0 && !/\n\s*$/.test(before);
+    const insertText = `${needsPrefix ? '\n\n' : ''}${snippet}\n\n`;
+
+    documentBody.value = `${before}${insertText}${after}`;
+    const cursor = before.length + insertText.length;
+    documentBody.selectionStart = cursor;
+    documentBody.selectionEnd = cursor;
+    state.currentDocumentBlockIds = pushUnique(state.currentDocumentBlockIds, blockId);
+    markDirty();
+    renderCounts();
+    renderBlockList();
+    renderMarkdownPreview();
+    documentBody.focus();
+  }
+
+  function pushUnique(list, value) {
+    const next = Array.isArray(list) ? list.slice() : [];
+    if (!next.includes(value)) {
+      next.push(value);
+    }
+    return next;
+  }
+
+  function getTextInsertionPoint() {
+    if (documentBody && typeof documentBody.selectionStart === 'number') {
+      return documentBody.selectionStart;
+    }
+    return documentBody ? documentBody.value.length : 0;
+  }
+
+  function getDragBlockId(event) {
+    return event.dataTransfer.getData('text/plain') || state.draggingBlockId || '';
+  }
+
+  function getDroppedText(event) {
+    if (!event || !event.dataTransfer) {
+      return '';
+    }
+
+    return event.dataTransfer.getData('text/plain')
+      || event.dataTransfer.getData('text/uri-list')
+      || '';
+  }
+
+  function isImageFile(file) {
+    return Boolean(file && typeof file.type === 'string' && file.type.startsWith('image/'));
+  }
+
+  function readFileAsDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+      reader.onerror = () => reject(reader.error || new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function createImageBlockFromUrl(imageUrl, label) {
+    if (!imageUrl) {
+      return null;
+    }
+
+    const storedImageUrl = isDataImageUrl(imageUrl)
+      ? await resizeDataImageUrl(imageUrl)
+      : imageUrl;
+
+    const block = await SurfDiaryStore.saveBlock({
+      type: 'image',
+      branchId: SurfDiaryStore.DEFAULT_BRANCH_ID,
+      content: {
+        imageUrl: storedImageUrl,
+        previewImageUrl: storedImageUrl,
+        originalImageUrl: imageUrl,
+        text: label || 'Image'
+      },
+      source: {
+        imageUrl: storedImageUrl,
+        previewImageUrl: storedImageUrl,
+        originalImageUrl: imageUrl,
+        title: label || 'Image'
+      }
+    });
+
+    state.blocks = [block].concat(state.blocks);
+    renderCounts();
+    renderBlockList();
+    return block;
+  }
+
+  async function handleDocumentDrop(event) {
+    const blockId = getDragBlockId(event);
+    const existingBlock = getBlockById(blockId);
+    if (existingBlock) {
+      insertBlockIntoDocument(existingBlock.id, documentBody.selectionStart ?? documentBody.value.length);
+      return;
+    }
+
+    const droppedText = getDroppedText(event).trim();
+    const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+
+    if (isImageFile(file)) {
+      try {
+        const dataUrl = await readFileAsDataUrl(file);
+        const label = file.name ? file.name.replace(/\.[^.]+$/, '') : 'Image';
+        const created = await createImageBlockFromUrl(dataUrl, label);
+        if (created) {
+          insertBlockIntoDocument(created.id, documentBody.selectionStart ?? documentBody.value.length);
+        }
+      } catch (error) {
+        console.error('Failed to import dropped image file', error);
+      }
+      return;
+    }
+
+    if (droppedText && /^data:image\//i.test(droppedText)) {
+      try {
+        const created = await createImageBlockFromUrl(droppedText, 'Dropped image');
+        if (created) {
+          insertBlockIntoDocument(created.id, documentBody.selectionStart ?? documentBody.value.length);
+        }
+      } catch (error) {
+        console.error('Failed to import dropped image data', error);
+      }
+      return;
+    }
+
+    if (droppedText && /^https?:\/\//i.test(droppedText)) {
+      try {
+        const created = await createImageBlockFromUrl(droppedText, 'Dropped image');
+        if (created) {
+          insertBlockIntoDocument(created.id, documentBody.selectionStart ?? documentBody.value.length);
+        }
+      } catch (error) {
+        console.error('Failed to import dropped image URL', error);
+      }
+    }
+  }
+
+  function getBlockById(blockId) {
+    return state.blocks.find((block) => block.id === blockId) || null;
+  }
+
+  function getBranchName(branchId) {
+    const branch = state.branches.find((item) => item.id === branchId);
+    return branch ? branch.name : 'Unknown';
+  }
+
+  function getBlockTitle(block) {
+    if (!block) {
+      return 'Untitled part';
+    }
+
+    if (block.type === 'url') {
+      return (block.content && block.content.title) || (block.source && block.source.title) || (block.content && block.content.url) || 'URL';
+    }
+
+    if (block.type === 'image') {
+      return (block.content && block.content.text) || (block.source && block.source.title) || 'Image';
+    }
+
+    const text = block.content && typeof block.content.text === 'string' ? block.content.text.trim() : '';
+    return text ? text.split('\n')[0].slice(0, 80) : 'Text part';
+  }
+
+  function getBlockSnippet(block) {
+    if (!block) {
+      return '';
+    }
+
+    if (block.type === 'url') {
+      const title = (block.content && block.content.title) || '';
+      const url = (block.content && block.content.url) || (block.source && block.source.url) || '';
+      return title && url ? `${title}\n${url}` : title || url;
+    }
+
+    if (block.type === 'image') {
+      const note = block.content && typeof block.content.text === 'string' ? block.content.text.trim() : '';
+      const title = (block.content && block.content.text) || (block.source && block.source.title) || 'Image';
+      return note ? `Image: ${title}\n${note}` : `Image: ${title}`;
+    }
+
+    const text = block.content && typeof block.content.text === 'string' ? block.content.text.trim() : '';
+    return text || '(empty)';
+  }
+
+  function formatDate(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return 'Unknown date';
+    }
+    return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  }
+
+  function blockToMarkdown(block) {
+    if (!block) {
+      return '';
+    }
+
+    if (block.type === 'image') {
+      const imageUrl = (block.content && block.content.originalImageUrl)
+        || (block.source && block.source.originalImageUrl)
+        || (block.content && block.content.imageUrl)
+        || (block.source && block.source.imageUrl)
+        || '';
+      const alt = (block.content && block.content.text) || (block.source && block.source.title) || 'image';
+      const note = block.content && typeof block.content.text === 'string' ? block.content.text.trim() : '';
+      if (shouldInlineImageUrl(imageUrl)) {
+        const imageLine = `![${escapeMarkdownLabel(alt)}](${imageUrl})`;
+        return note ? `${imageLine}\n\n${note}` : imageLine;
+      }
+
+      return note ? `Image: ${escapeMarkdownLabel(alt)}\n\n${note}` : `Image: ${escapeMarkdownLabel(alt)}`;
+    }
+
+    if (block.type === 'url') {
+      const title = (block.content && block.content.title) || (block.source && block.source.title) || 'Link';
+      const url = (block.content && block.content.url) || (block.source && block.source.url) || '';
+      return `[${escapeMarkdownLabel(title)}](${url})`;
+    }
+
+    return (block.content && typeof block.content.text === 'string' ? block.content.text : '').trim();
+  }
+
+  function escapeMarkdownLabel(value) {
+    return String(value || '')
+      .replace(/\[/g, '\\[')
+      .replace(/\]/g, '\\]')
+      .replace(/\(/g, '\\(')
+      .replace(/\)/g, '\\)');
+  }
+
+  function isDataImageUrl(value) {
+    return typeof value === 'string' && /^data:image\//i.test(value);
+  }
+
+  function resolveImageSource(block) {
+    const imageUrl = block && block.content && typeof block.content.imageUrl === 'string'
+      ? block.content.imageUrl
+      : (block && block.source && typeof block.source.imageUrl === 'string' ? block.source.imageUrl : '');
+
+    if (!imageUrl) {
+      return Promise.resolve('');
+    }
+
+    if (!/^data:image\//i.test(imageUrl)) {
+      return Promise.resolve(imageUrl);
+    }
+
+    return fetch(imageUrl)
+      .then((response) => response.blob())
+      .then((blob) => URL.createObjectURL(blob))
+      .catch(() => imageUrl);
+  }
+
+  function shouldInlineImageUrl(value) {
+    return typeof value === 'string' && (!isDataImageUrl(value) || value.length <= 18000);
+  }
+
+  function resizeDataImageUrl(imageUrl, maxSize = 320, quality = 0.84) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const width = img.naturalWidth || img.width;
+          const height = img.naturalHeight || img.height;
+          if (!width || !height) {
+            resolve(imageUrl);
+            return;
+          }
+
+          const scale = Math.min(1, maxSize / Math.max(width, height));
+          const targetWidth = Math.max(1, Math.round(width * scale));
+          const targetHeight = Math.max(1, Math.round(height * scale));
+
+          const canvas = document.createElement('canvas');
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
+          const context = canvas.getContext('2d');
+
+          if (!context) {
+            resolve(imageUrl);
+            return;
+          }
+
+          context.drawImage(img, 0, 0, targetWidth, targetHeight);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } catch (error) {
+          reject(error);
+        }
+      };
+
+      img.onerror = () => reject(new Error('Failed to load image for resizing'));
+      img.src = imageUrl;
+    });
+  }
+
+  function markdownForCurrentDocument() {
+    return documentBody ? documentBody.value : '';
+  }
+
+  function saveBlockPlacementState() {
+    state.currentDocumentBlockIds = state.currentDocumentBlockIds.filter((id) => getBlockById(id));
+  }
+
+  function renderMarkdownPreview() {
+    if (!markdownPreview) {
+      return;
+    }
+
+    clearPreviewObjectUrls();
+    markdownPreview.innerHTML = '';
+
+    const markdown = markdownForCurrentDocument().trim();
+    if (!markdown) {
+      markdownPreview.textContent = 'Markdown preview will appear here.';
+      return;
+    }
+
+    const sections = splitMarkdownSections(markdown);
+    sections.forEach((section) => {
+      renderMarkdownSection(section, markdownPreview);
+    });
+  }
+
+  function clearPreviewObjectUrls() {
+    while (previewObjectUrls.length > 0) {
+      const url = previewObjectUrls.pop();
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  function splitMarkdownSections(markdown) {
+    const lines = markdown.split(/\r?\n/);
+    const sections = [];
+    let buffer = [];
+    let inFence = false;
+
+    lines.forEach((line) => {
+      if (/^```/.test(line.trim())) {
+        if (inFence) {
+          buffer.push(line);
+          sections.push({ type: 'code', text: buffer.join('\n') });
+          buffer = [];
+          inFence = false;
+        } else {
+          if (buffer.length > 0) {
+            sections.push({ type: 'text', text: buffer.join('\n') });
+            buffer = [];
+          }
+          buffer.push(line);
+          inFence = true;
+        }
+        return;
+      }
+
+      if (!inFence && line.trim() === '') {
+        if (buffer.length > 0) {
+          sections.push({ type: 'text', text: buffer.join('\n') });
+          buffer = [];
+        }
+        return;
+      }
+
+      buffer.push(line);
+    });
+
+    if (buffer.length > 0) {
+      sections.push({ type: inFence ? 'code' : 'text', text: buffer.join('\n') });
+    }
+
+    return sections;
+  }
+
+  function renderMarkdownSection(section, container) {
+    if (!section || !section.text) {
+      return;
+    }
+
+    if (section.type === 'code') {
+      const pre = document.createElement('pre');
+      const code = document.createElement('code');
+      code.textContent = section.text.replace(/^```[^\n]*\n?/, '').replace(/\n```$/, '');
+      pre.appendChild(code);
+      container.appendChild(pre);
+      return;
+    }
+
+    const trimmed = section.text.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    const lines = trimmed.split(/\r?\n/);
+    const headingMatch = lines.length === 1 ? /^(#{1,6})\s+(.+)$/.exec(lines[0].trim()) : null;
+    if (headingMatch) {
+      const level = Math.min(6, headingMatch[1].length);
+      const heading = document.createElement(`h${level}`);
+      appendInlineMarkdown(heading, headingMatch[2]);
+      container.appendChild(heading);
+      return;
+    }
+
+    if (lines.every((line) => /^>\s?/.test(line.trim()))) {
+      const blockquote = document.createElement('blockquote');
+      lines.forEach((line, index) => {
+        appendInlineMarkdown(blockquote, line.replace(/^>\s?/, ''));
+        if (index < lines.length - 1) {
+          blockquote.appendChild(document.createElement('br'));
+        }
+      });
+      container.appendChild(blockquote);
+      return;
+    }
+
+    const listMatch = lines.every((line) => /^(\-|\*|\+)\s+/.test(line.trim()));
+    if (listMatch) {
+      const ul = document.createElement('ul');
+      lines.forEach((line) => {
+        const li = document.createElement('li');
+        appendInlineMarkdown(li, line.replace(/^(\-|\*|\+)\s+/, ''));
+        ul.appendChild(li);
+      });
+      container.appendChild(ul);
+      return;
+    }
+
+    const paragraph = document.createElement('p');
+    lines.forEach((line, index) => {
+      appendInlineMarkdown(paragraph, line);
+      if (index < lines.length - 1) {
+        paragraph.appendChild(document.createElement('br'));
+      }
+    });
+    container.appendChild(paragraph);
+  }
+
+  function appendInlineMarkdown(parent, text) {
+    if (!text) {
+      return;
+    }
+
+    const pattern = /(!\[[^\]]*\]\([^)]+\)|\[[^\]]+\]\([^)]+\))/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = pattern.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        parent.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+      }
+
+      const token = match[0];
+      const imageMatch = /^!\[([^\]]*)\]\(([^)]+)\)$/.exec(token);
+      const linkMatch = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(token);
+
+      if (imageMatch) {
+        const img = document.createElement('img');
+        img.alt = imageMatch[1] || 'image';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        resolvePreviewImageSource(imageMatch[2]).then((src) => {
+          if (src) {
+            img.src = src;
+          }
+        }).catch((error) => {
+          console.error('Failed to render preview image', error);
+        });
+        parent.appendChild(img);
+      } else if (linkMatch) {
+        const a = document.createElement('a');
+        a.href = linkMatch[2];
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.textContent = linkMatch[1];
+        parent.appendChild(a);
+      } else {
+        parent.appendChild(document.createTextNode(token));
+      }
+
+      lastIndex = pattern.lastIndex;
+    }
+
+    if (lastIndex < text.length) {
+      parent.appendChild(document.createTextNode(text.slice(lastIndex)));
+    }
+  }
+
+  function resolvePreviewImageSource(imageUrl) {
+    if (!imageUrl) {
+      return Promise.resolve('');
+    }
+
+    if (!/^data:image\//i.test(imageUrl)) {
+      return Promise.resolve(imageUrl);
+    }
+
+    return fetch(imageUrl)
+      .then((response) => response.blob())
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        previewObjectUrls.push(url);
+        return url;
+      })
+      .catch(() => imageUrl);
   }
 
   async function saveCurrentDocument() {
     try {
+      saveBlockPlacementState();
       const title = documentTitleInput && documentTitleInput.value.trim()
         ? documentTitleInput.value.trim()
         : 'Untitled Diary';
-      const markdown = markdownTextarea ? markdownTextarea.value : '';
+      const markdown = markdownForCurrentDocument();
       const payload = {
         id: state.currentDocumentId || undefined,
         title,
-        blockIds: state.attachedBlockIds.slice(),
+        blockIds: state.currentDocumentBlockIds.slice(),
         markdown
       };
 
@@ -637,8 +993,8 @@ document.addEventListener('DOMContentLoaded', () => {
       state.isDirty = false;
       await loadState();
       refreshStatus();
-    } catch (e) {
-      console.error('Failed to save document', e);
+    } catch (error) {
+      console.error('Failed to save document', error);
     }
   }
 
@@ -649,20 +1005,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     state.currentDocumentId = document.id;
-    state.attachedBlockIds = Array.isArray(document.blockIds) ? document.blockIds.slice() : [];
+    state.currentDocumentBlockIds = Array.isArray(document.blockIds) ? document.blockIds.slice() : [];
 
     if (documentTitleInput) {
       documentTitleInput.value = document.title || '';
     }
-    if (markdownTextarea) {
-      markdownTextarea.value = document.markdown || '';
+    if (documentBody) {
+      documentBody.value = document.markdown || '';
     }
 
     state.isDirty = false;
+    renderBlockList();
+    renderMarkdownPreview();
     renderCounts();
-    renderBlocks();
-    renderDocuments();
-    renderAttachedBlocks();
+    renderDocumentList();
     refreshStatus();
   }
 
@@ -683,17 +1039,62 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       await loadState();
-    } catch (e) {
-      console.error('Failed to delete document', e);
+    } catch (error) {
+      console.error('Failed to delete document', error);
     }
   }
 
-  function exportDocument(documentData) {
+  async function exportDocument(documentData) {
     const title = (documentData && documentData.title) || (documentTitleInput && documentTitleInput.value.trim()) || 'Untitled Diary';
     const markdown = documentData
       ? documentData.markdown || ''
-      : (markdownTextarea ? markdownTextarea.value : '');
+      : markdownForCurrentDocument();
     const fileName = `${sanitizeFileName(title) || 'untitled-diary'}.md`;
+
+    if (typeof window.showDirectoryPicker === 'function') {
+      try {
+        const directoryHandle = await window.showDirectoryPicker({
+          id: EXPORT_PICKER_ID,
+          mode: 'readwrite',
+          startIn: 'documents',
+        });
+
+        const exportResult = await exportMarkdownWithAssets(markdown, directoryHandle);
+        await writeTextFile(directoryHandle, fileName, exportResult.markdown);
+        return;
+      } catch (error) {
+        if (error && error.name === 'AbortError') {
+          return;
+        }
+
+        console.error('showDirectoryPicker export failed, falling back to save file', error);
+      }
+    }
+
+    if (typeof window.showSaveFilePicker === 'function') {
+      try {
+        const handle = await window.showSaveFilePicker({
+          id: EXPORT_PICKER_ID,
+          suggestedName: fileName,
+          startIn: 'documents',
+          types: [{
+            description: 'Markdown',
+            accept: { 'text/markdown': ['.md', '.markdown'] }
+          }]
+        });
+
+        const writable = await handle.createWritable();
+        await writable.write(new Blob([markdown], { type: 'text/markdown;charset=utf-8' }));
+        await writable.close();
+        return;
+      } catch (error) {
+        if (error && error.name === 'AbortError') {
+          return;
+        }
+
+        console.error('showSaveFilePicker export failed, falling back to download', error);
+      }
+    }
 
     const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -707,16 +1108,139 @@ document.addEventListener('DOMContentLoaded', () => {
     window.setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
-  function exportCurrentDocument() {
+  async function exportMarkdownWithAssets(markdown, directoryHandle) {
+    const imageUrls = extractMarkdownImageUrls(markdown);
+    if (imageUrls.length === 0) {
+      return { markdown, assetMap: new Map() };
+    }
+
+    const assetDirectory = await directoryHandle.getDirectoryHandle(ASSET_DIR_NAME, { create: true });
+    const assetMap = new Map();
+
+    for (const sourceUrl of imageUrls) {
+      const exported = await exportMarkdownImageAsset(sourceUrl, assetDirectory);
+      if (exported) {
+        assetMap.set(sourceUrl, `${ASSET_DIR_NAME}/${exported.fileName}`);
+      }
+    }
+
+    return {
+      markdown: rewriteMarkdownImageUrls(markdown, assetMap),
+      assetMap
+    };
+  }
+
+  function extractMarkdownImageUrls(markdown) {
+    const result = [];
+    const seen = new Set();
+    const pattern = /!\[[^\]]*\]\(([^)]+)\)/g;
+    let match;
+
+    while ((match = pattern.exec(markdown)) !== null) {
+      const url = normalizeMarkdownImageUrl(match[1]);
+      if (!url || isLocalMarkdownImageUrl(url) || seen.has(url)) {
+        continue;
+      }
+
+      seen.add(url);
+      result.push(url);
+    }
+
+    return result;
+  }
+
+  function rewriteMarkdownImageUrls(markdown, assetMap) {
+    return markdown.replace(/(!\[[^\]]*\]\()([^)]+)(\))/g, (fullMatch, prefix, rawUrl, suffix) => {
+      const url = normalizeMarkdownImageUrl(rawUrl);
+      const replacement = assetMap.get(url);
+      if (!replacement) {
+        return fullMatch;
+      }
+      return `${prefix}${replacement}${suffix}`;
+    });
+  }
+
+  function normalizeMarkdownImageUrl(value) {
+    return String(value || '')
+      .trim()
+      .replace(/^<|>$/g, '');
+  }
+
+  function isLocalMarkdownImageUrl(value) {
+    return typeof value === 'string' && !/^(?:https?:|data:|blob:|file:|\/\/)/i.test(value);
+  }
+
+  async function exportMarkdownImageAsset(sourceUrl, assetDirectory) {
+    try {
+      const response = await fetch(sourceUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image: ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const fileName = await createAssetFileName(sourceUrl, blob);
+      await writeBinaryFile(assetDirectory, fileName, blob);
+      return { fileName, mimeType: blob.type || '' };
+    } catch (error) {
+      console.error('Failed to export markdown image asset', sourceUrl, error);
+      return null;
+    }
+  }
+
+  async function createAssetFileName(sourceUrl, blob) {
+    const hash = await sha256Hex(sourceUrl);
+    const ext = guessAssetExtension(sourceUrl, blob && blob.type ? blob.type : '');
+    return `img-${hash.slice(0, 12)}${ext}`;
+  }
+
+  function guessAssetExtension(sourceUrl, mimeType = '') {
+    const normalizedMime = String(mimeType || '').toLowerCase();
+    if (normalizedMime.includes('jpeg')) return '.jpg';
+    if (normalizedMime.includes('png')) return '.png';
+    if (normalizedMime.includes('gif')) return '.gif';
+    if (normalizedMime.includes('webp')) return '.webp';
+    if (normalizedMime.includes('bmp')) return '.bmp';
+    if (normalizedMime.includes('svg')) return '.svg';
+    if (normalizedMime.includes('avif')) return '.avif';
+
+    const extMatch = /\.([a-z0-9]+)(?:[?#].*)?$/i.exec(String(sourceUrl || ''));
+    if (extMatch) {
+      return `.${extMatch[1].toLowerCase()}`;
+    }
+
+    return '.png';
+  }
+
+  async function sha256Hex(value) {
+    const data = new TextEncoder().encode(String(value || ''));
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+  }
+
+  async function writeTextFile(directoryHandle, fileName, content) {
+    const fileHandle = await directoryHandle.getFileHandle(fileName, { create: true });
+    const writable = await fileHandle.createWritable();
+    await writable.write(new Blob([content], { type: 'text/markdown;charset=utf-8' }));
+    await writable.close();
+  }
+
+  async function writeBinaryFile(directoryHandle, fileName, blob) {
+    const fileHandle = await directoryHandle.getFileHandle(fileName, { create: true });
+    const writable = await fileHandle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+  }
+
+  async function exportCurrentDocument() {
     const current = state.documents.find((item) => item.id === state.currentDocumentId) || null;
     if (current && !state.isDirty) {
-      exportDocument(current);
+      await exportDocument(current);
       return;
     }
 
-    exportDocument({
+    await exportDocument({
       title: documentTitleInput && documentTitleInput.value.trim() ? documentTitleInput.value.trim() : 'Untitled Diary',
-      markdown: markdownTextarea ? markdownTextarea.value : ''
+      markdown: markdownForCurrentDocument()
     });
   }
 
@@ -726,5 +1250,16 @@ document.addEventListener('DOMContentLoaded', () => {
       .replace(/[<>:"/\\|?*\x00-\x1F]/g, '-')
       .replace(/\s+/g, ' ')
       .slice(0, 80);
+  }
+
+  function clearCurrentDocument() {
+    state.currentDocumentBlockIds = [];
+    if (documentBody) {
+      documentBody.value = '';
+    }
+    markDirty();
+    renderCounts();
+    renderBlockList();
+    renderMarkdownPreview();
   }
 });

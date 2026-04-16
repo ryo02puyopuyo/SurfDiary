@@ -30,6 +30,10 @@
     return JSON.parse(JSON.stringify(value));
   }
 
+  function normalizeString(value) {
+    return typeof value === 'string' && value.trim() ? value.trim() : '';
+  }
+
   function ensureInboxBranch(branches) {
     const list = Array.isArray(branches) ? branches.slice() : [];
     const exists = list.some((branch) => branch && branch.id === DEFAULT_BRANCH_ID);
@@ -61,24 +65,50 @@
     if (!source || typeof source !== 'object') {
       return {};
     }
+
+    const imageUrl = normalizeString(source.imageUrl);
+    const previewImageUrl = normalizeString(source.previewImageUrl) || imageUrl;
+    const originalImageUrl = normalizeString(source.originalImageUrl) || imageUrl;
+
     return {
-      pageUrl: source.pageUrl || null,
-      title: source.title || null,
-      selectionText: source.selectionText || null,
-      imageUrl: source.imageUrl || null,
-      url: source.url || null
+      pageUrl: normalizeString(source.pageUrl) || null,
+      title: normalizeString(source.title) || null,
+      selectionText: normalizeString(source.selectionText) || null,
+      imageUrl: previewImageUrl || null,
+      previewImageUrl: previewImageUrl || null,
+      originalImageUrl: originalImageUrl || null,
+      imageFileName: normalizeString(source.imageFileName) || null,
+      imageMimeType: normalizeString(source.imageMimeType) || null,
+      url: normalizeString(source.url) || null
     };
   }
 
   function normalizeContent(type, content) {
     if (content && typeof content === 'object' && !Array.isArray(content)) {
-      return clone(content);
+      const normalized = clone(content);
+      if (type === 'image') {
+        const imageUrl = normalizeString(normalized.imageUrl);
+        const previewImageUrl = normalizeString(normalized.previewImageUrl) || imageUrl;
+        const originalImageUrl = normalizeString(normalized.originalImageUrl) || imageUrl;
+        return {
+          ...normalized,
+          imageUrl: previewImageUrl || originalImageUrl,
+          previewImageUrl: previewImageUrl || originalImageUrl || '',
+          originalImageUrl: originalImageUrl || previewImageUrl || ''
+        };
+      }
+      return normalized;
     }
     if (type === 'text') {
       return { text: content || '' };
     }
     if (type === 'image') {
-      return { imageUrl: content || '' };
+      const imageUrl = normalizeString(content);
+      return {
+        imageUrl,
+        previewImageUrl: imageUrl,
+        originalImageUrl: imageUrl
+      };
     }
     if (type === 'url') {
       return { url: content || '' };
@@ -90,14 +120,31 @@
     const type = block && block.type ? block.type : 'text';
     const createdAt = block && block.createdAt ? block.createdAt : new Date().toISOString();
     const id = block && block.id ? block.id : createId('blk');
+    const content = normalizeContent(type, block ? block.content : null);
+    const source = normalizeSource(block ? block.source : null);
+    const sortOrder = typeof (block && block.sortOrder) === 'number'
+      ? block.sortOrder
+      : new Date(createdAt).getTime();
+
+    if (type === 'image') {
+      const previewImageUrl = normalizeString(content.previewImageUrl) || normalizeString(content.imageUrl) || normalizeString(source.previewImageUrl) || normalizeString(source.imageUrl);
+      const originalImageUrl = normalizeString(content.originalImageUrl) || normalizeString(source.originalImageUrl) || normalizeString(content.imageUrl) || normalizeString(source.imageUrl);
+      content.imageUrl = previewImageUrl || originalImageUrl;
+      content.previewImageUrl = previewImageUrl || originalImageUrl;
+      content.originalImageUrl = originalImageUrl || previewImageUrl;
+      source.imageUrl = previewImageUrl || originalImageUrl || null;
+      source.previewImageUrl = previewImageUrl || originalImageUrl || null;
+      source.originalImageUrl = originalImageUrl || previewImageUrl || null;
+    }
 
     return {
       id,
       type,
       branchId: block && block.branchId ? block.branchId : DEFAULT_BRANCH_ID,
-      content: normalizeContent(type, block ? block.content : null),
-      source: normalizeSource(block ? block.source : null),
-      createdAt
+      content,
+      source,
+      createdAt,
+      sortOrder
     };
   }
 
@@ -128,7 +175,9 @@
       title: memo.title || null,
       pageUrl: memo.url || null,
       url: memo.url || null,
-      imageUrl: memo.imageUrl || null
+      imageUrl: memo.imageUrl || null,
+      previewImageUrl: memo.imageUrl || null,
+      originalImageUrl: memo.imageUrl || null
     };
 
     if (memo.type === 'image' || memo.imageUrl) {
@@ -138,6 +187,8 @@
         branchId: DEFAULT_BRANCH_ID,
         content: {
           imageUrl: memo.imageUrl || '',
+          previewImageUrl: memo.imageUrl || '',
+          originalImageUrl: memo.imageUrl || '',
           text: memo.text || ''
         },
         source,
@@ -274,7 +325,14 @@
 
   async function loadBlocks() {
     const state = await readState();
-    return state.blocks.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    return state.blocks.slice().sort((a, b) => {
+      const aOrder = typeof a.sortOrder === 'number' ? a.sortOrder : new Date(a.createdAt).getTime();
+      const bOrder = typeof b.sortOrder === 'number' ? b.sortOrder : new Date(b.createdAt).getTime();
+      if (bOrder !== aOrder) {
+        return bOrder - aOrder;
+      }
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
   }
 
   async function loadBranches() {

@@ -4,7 +4,7 @@
   "description": "A browser-integrated memo and diary tool.",
   "main": "index.js",
   "scripts": {
-    "start": "web-ext run",
+    "start": "node scripts/run-web-ext.cjs",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
