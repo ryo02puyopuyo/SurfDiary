@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node scripts/run-web-ext.cjs",
+    "start:chrome": "powershell -NoProfile -Command \"$env:BROWSER_BINARY='C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'; node scripts/run-web-ext.cjs\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

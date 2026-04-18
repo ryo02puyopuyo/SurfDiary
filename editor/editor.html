@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>SurfDiary Editor</title>
+  <title>SurfDiary Builder</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="editor.css"/>
 </head>
@@ -11,11 +11,11 @@
     <aside class="sidebar-list">
       <section class="sidebar-section">
         <div class="section-header">
-          <h2>Saved Blocks</h2>
+          <h2>Saved Fragments</h2>
           <span id="block-count" class="section-count">0</span>
         </div>
         <div id="memo-list" class="memo-list">
-          <!-- Saved blocks appear here -->
+          <!-- Saved fragments appear here -->
         </div>
       </section>
 
@@ -34,13 +34,17 @@
       <header class="main-header">
         <div class="editor-title-group">
           <h1>Document Builder</h1>
-          <input id="document-title-input" class="title-input" type="text" placeholder="Document title" />
+          <div class="title-row">
+            <input id="document-title-input" class="title-input" type="text" placeholder="Document title" />
+            <button id="today-title-btn" class="secondary-btn today-btn" type="button">today</button>
+          </div>
         </div>
         <div class="editor-header-actions">
+          <button id="toggle-preview-btn" class="secondary-btn preview-toggle-btn" type="button">Collapse preview</button>
           <button id="new-document-btn" class="secondary-btn" type="button">New</button>
           <button id="clear-document-btn" class="secondary-btn" type="button">Clear</button>
-          <button id="export-document-btn" class="secondary-btn" type="button">Export .md</button>
-          <button id="save-document-btn" class="primary-btn" type="button">Save diary</button>
+          <button id="save-document-btn" class="secondary-btn" type="button">Save diary</button>
+          <button id="export-document-btn" class="primary-btn" type="button">Export .md</button>
         </div>
       </header>
 
@@ -48,10 +52,12 @@
         <section class="draft-panel">
           <div class="draft-meta">
             <div id="document-status" class="document-status">Draft ready</div>
-            <div id="attached-count" class="attached-count">0 parts placed</div>
+            <div id="attached-count" class="attached-count">0 fragments placed</div>
           </div>
-          <textarea id="document-body" class="document-body" placeholder="Type your diary here, or drop saved blocks into this area."></textarea>
+          <textarea id="document-body" class="document-body" placeholder="Type your diary here, or drop saved fragments into this area."></textarea>
         </section>
+
+        <div id="editor-splitter" class="editor-splitter" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Resize document and preview panels"></div>
 
         <section class="preview-panel">
           <div class="preview-header">

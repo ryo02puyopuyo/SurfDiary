@@ -10,7 +10,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const saveBranchSelect = document.getElementById('save-branch-select');
   const branchFilterSelect = document.getElementById('branch-filter');
   const typeFilterSelect = document.getElementById('type-filter');
-  const createBranchBtn = document.getElementById('create-branch-btn');
   const branchCreateRow = document.getElementById('branch-create-row');
   const newBranchNameInput = document.getElementById('new-branch-name');
   const confirmBranchBtn = document.getElementById('confirm-branch-btn');
@@ -58,12 +57,6 @@ document.addEventListener('DOMContentLoaded', () => {
     typeFilterSelect.addEventListener('change', async () => {
       state.filters.type = typeFilterSelect.value;
       await renderBlocks();
-    });
-  }
-
-  if (createBranchBtn) {
-    createBranchBtn.addEventListener('click', async () => {
-      openBranchComposer();
     });
   }
 
@@ -347,13 +340,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (toggleSavePanelBtn) {
-      toggleSavePanelBtn.textContent = 'v';
+      toggleSavePanelBtn.textContent = state.composeCollapsed ? '▸' : '▾';
       toggleSavePanelBtn.setAttribute('aria-expanded', String(!state.composeCollapsed));
       toggleSavePanelBtn.title = state.composeCollapsed ? 'Expand save section' : 'Collapse save section';
     }
 
     if (toggleTimelinePanelBtn) {
-      toggleTimelinePanelBtn.textContent = 'v';
+      toggleTimelinePanelBtn.textContent = state.timelineCollapsed ? '▸' : '▾';
       toggleTimelinePanelBtn.setAttribute('aria-expanded', String(!state.timelineCollapsed));
       toggleTimelinePanelBtn.title = state.timelineCollapsed ? 'Expand timeline section' : 'Collapse timeline section';
     }
@@ -370,7 +363,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function getBlockTitle(block) {
     if (!block) {
-      return 'Untitled part';
+      return 'Untitled fragment';
     }
 
     if (block.type === 'url') {
@@ -382,7 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const text = block.content && typeof block.content.text === 'string' ? block.content.text.trim() : '';
-    return text ? text.split('\n')[0].slice(0, 80) : 'Text part';
+    return text ? text.split('\n')[0].slice(0, 80) : 'Text fragment';
   }
 
   function applyFilters(blocks) {
@@ -1277,7 +1270,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const heading = document.createElement('div');
     heading.className = 'memo-edit-title';
-    heading.textContent = 'Edit memo';
+    heading.textContent = 'Edit fragment';
     form.appendChild(heading);
 
     const makeField = (labelText, element) => {

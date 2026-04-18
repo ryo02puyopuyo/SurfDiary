@@ -10,7 +10,7 @@
       <header>
         <div class="header-brand">
           <span class="header-title">SurfDiary</span>
-          <button id="open-editor-btn" class="icon-btn" title="Open editor">Edit</button>
+          <button id="open-editor-btn" class="icon-btn open-editor-btn" title="Open builder">Open Builder</button>
         </div>
       </header>
 
@@ -42,9 +42,9 @@
         <section class="timeline-panel">
           <div class="timeline-toolbar">
             <div class="timeline-title-row">
-              <h2>Timeline</h2>
-              <button id="show-all-timeline-btn" class="secondary-btn timeline-action-btn" title="Show all timeline">All Timeline</button>
-              <button id="toggle-timeline-panel-btn" class="icon-btn collapse-btn" type="button" aria-expanded="true" title="Collapse timeline section">v</button>
+              <h2>Fragments</h2>
+              <button id="show-all-timeline-btn" class="secondary-btn timeline-action-btn" title="Show all fragments">All Fragments</button>
+              <button id="toggle-timeline-panel-btn" class="icon-btn collapse-btn" type="button" aria-expanded="true" title="Collapse fragments section">v</button>
             </div>
 
             <div class="timeline-body">
@@ -65,14 +65,12 @@
                 </div>
 
                 <div class="toolbar-actions">
-                  <button id="create-branch-btn" class="secondary-btn" title="Create branch">New Branch</button>
                   <span id="timeline-count" class="timeline-count">0 items</span>
                 </div>
               </div>
 
               <div id="branch-create-row" class="branch-create-row">
-                <label class="branch-create-label" for="new-branch-name">Create branch</label>
-                <input id="new-branch-name" class="branch-create-input" type="text" placeholder="Branch name">
+                <input id="new-branch-name" class="branch-create-input" type="text" placeholder="new Branch name" aria-label="new Branch name">
                 <button id="confirm-branch-btn" class="secondary-btn branch-create-btn" type="button">Create</button>
                 <button id="cancel-branch-btn" class="secondary-btn branch-create-btn" type="button">Cancel</button>
               </div>

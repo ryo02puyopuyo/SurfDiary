@@ -58,6 +58,23 @@ header {
   white-space: nowrap;
 }
 
+.open-editor-btn {
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid rgba(0, 102, 204, 0.22);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffffff 0%, #eef4ff 100%);
+  color: #1d4ed8;
+  box-shadow: 0 6px 16px rgba(0, 102, 204, 0.10);
+}
+
+.icon-btn.open-editor-btn:hover {
+  background: linear-gradient(180deg, #f8fbff 0%, #e4eeff 100%);
+  color: #0047a3;
+  box-shadow: 0 8px 18px rgba(0, 102, 204, 0.16);
+}
+
 .icon-btn:hover {
   background-color: #f0f0f5;
 }
@@ -108,18 +125,25 @@ main {
 }
 
 .collapse-btn {
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  font-size: 12px;
+  width: auto;
+  height: auto;
+  padding: 2px 4px;
+  font-size: 20px;
   line-height: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 999px;
-  border: 1px solid rgba(0, 102, 204, 0.2);
-  background-color: rgba(255, 255, 255, 0.8);
-  transition: transform 0.2s ease, background-color 0.2s ease;
+  border-radius: 0;
+  border: 0;
+  background: transparent;
+  color: #86868b;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.collapse-btn:hover {
+  background: transparent;
+  color: #1d1d1f;
+  transform: translateY(-1px);
 }
 
 .collapse-btn[aria-expanded="false"] {
@@ -285,7 +309,7 @@ main {
 }
 
 .branch-create-input {
-  flex: 1 1 160px;
+  flex: 1 1 130px;
   min-width: 0;
   border: 1px solid #d2d2d7;
   border-radius: 8px;

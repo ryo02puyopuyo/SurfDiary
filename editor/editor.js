@@ -4,10 +4,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const blockCount = document.getElementById('block-count');
   const documentCount = document.getElementById('document-count');
   const documentTitleInput = document.getElementById('document-title-input');
+  const todayTitleBtn = document.getElementById('today-title-btn');
   const documentStatus = document.getElementById('document-status');
   const attachedCount = document.getElementById('attached-count');
   const documentBody = document.getElementById('document-body');
   const markdownPreview = document.getElementById('markdown-preview');
+  const editorBody = document.querySelector('.editor-body');
+  const previewPanel = document.querySelector('.preview-panel');
+  const editorSplitter = document.getElementById('editor-splitter');
+  const togglePreviewBtn = document.getElementById('toggle-preview-btn');
   const newDocumentBtn = document.getElementById('new-document-btn');
   const saveDocumentBtn = document.getElementById('save-document-btn');
   const exportDocumentBtn = document.getElementById('export-document-btn');
@@ -16,6 +21,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const EXPORT_FILE_PICKER_ID = 'surfdiary-document-export-file';
   const EXPORT_DIR_PICKER_ID = 'surfdiary-document-export-dir';
   const ASSET_DIR_NAME = 'SDAssets';
+  const LAYOUT_STORAGE_KEY = 'surfdiary-editor-layout';
+  const EDITOR_SPLITTER_WIDTH = 10;
+  const EDITOR_SPLITTER_GAP = 16;
+  const MIN_PANEL_RATIO = 30;
+  const MAX_PANEL_RATIO = 75;
+  const DEFAULT_PANEL_RATIO = 60;
 
   const state = {
     blocks: [],
@@ -24,13 +35,28 @@ document.addEventListener('DOMContentLoaded', () => {
     currentDocumentId: null,
     currentDocumentBlockIds: [],
     isDirty: false,
-    draggingBlockId: null
+    draggingBlockId: null,
+    layout: {
+      previewCollapsed: false,
+      splitRatio: DEFAULT_PANEL_RATIO
+    }
   };
 
+  loadLayoutState();
+  applyLayoutState();
   loadState();
 
   if (documentTitleInput) {
     documentTitleInput.addEventListener('input', markDirty);
+  }
+
+  if (todayTitleBtn && documentTitleInput) {
+    todayTitleBtn.addEventListener('click', () => {
+      documentTitleInput.value = formatTodayYyyyMmDd();
+      markDirty();
+      documentTitleInput.focus();
+      documentTitleInput.setSelectionRange(documentTitleInput.value.length, documentTitleInput.value.length);
+    });
   }
 
   if (documentBody) {
@@ -73,6 +99,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (clearDocumentBtn) {
     clearDocumentBtn.addEventListener('click', clearCurrentDocument);
+  }
+
+  if (togglePreviewBtn) {
+    togglePreviewBtn.addEventListener('click', () => {
+      togglePreviewCollapsed();
+    });
+  }
+
+  if (editorSplitter) {
+    editorSplitter.addEventListener('pointerdown', beginSplitDrag);
+    editorSplitter.addEventListener('keydown', handleSplitterKeydown);
   }
 
   browser.storage.onChanged.addListener((changes, area) => {
@@ -132,6 +169,185 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  function loadLayoutState() {
+    try {
+      const raw = window.localStorage.getItem(LAYOUT_STORAGE_KEY);
+      if (!raw) {
+        return;
+      }
+
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        if (typeof parsed.previewCollapsed === 'boolean') {
+          state.layout.previewCollapsed = parsed.previewCollapsed;
+        }
+
+        if (typeof parsed.splitRatio === 'number' && Number.isFinite(parsed.splitRatio)) {
+          state.layout.splitRatio = clampPanelRatio(parsed.splitRatio);
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load editor layout preferences', error);
+    }
+  }
+
+  function saveLayoutState() {
+    try {
+      window.localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify({
+        previewCollapsed: state.layout.previewCollapsed,
+        splitRatio: state.layout.splitRatio
+      }));
+    } catch (error) {
+      console.warn('Failed to save editor layout preferences', error);
+    }
+  }
+
+  function applyLayoutState() {
+    if (!editorBody) {
+      return;
+    }
+
+    editorBody.classList.toggle('preview-collapsed', state.layout.previewCollapsed);
+    if (previewPanel) {
+      previewPanel.hidden = state.layout.previewCollapsed;
+    }
+    if (editorSplitter) {
+      editorSplitter.hidden = state.layout.previewCollapsed;
+    }
+
+    if (!state.layout.previewCollapsed) {
+      editorBody.style.setProperty('--draft-panel-size', `${state.layout.splitRatio}fr`);
+      editorBody.style.setProperty('--preview-panel-size', `${100 - state.layout.splitRatio}fr`);
+    }
+
+    if (togglePreviewBtn) {
+      togglePreviewBtn.textContent = state.layout.previewCollapsed ? 'Expand preview' : 'Collapse preview';
+      togglePreviewBtn.setAttribute('aria-pressed', String(!state.layout.previewCollapsed));
+      togglePreviewBtn.title = state.layout.previewCollapsed ? 'Show markdown preview' : 'Hide markdown preview';
+    }
+
+    if (editorSplitter) {
+      editorSplitter.setAttribute('aria-hidden', String(state.layout.previewCollapsed));
+    }
+  }
+
+  function setPreviewCollapsed(collapsed) {
+    state.layout.previewCollapsed = Boolean(collapsed);
+    applyLayoutState();
+    saveLayoutState();
+  }
+
+  function togglePreviewCollapsed() {
+    setPreviewCollapsed(!state.layout.previewCollapsed);
+  }
+
+  function clampPanelRatio(value) {
+    return Math.min(MAX_PANEL_RATIO, Math.max(MIN_PANEL_RATIO, Math.round(value)));
+  }
+
+  function setPanelRatio(value, persist = true) {
+    state.layout.splitRatio = clampPanelRatio(value);
+    if (!state.layout.previewCollapsed) {
+      applyLayoutState();
+    }
+    if (persist) {
+      saveLayoutState();
+    }
+  }
+
+  function getSplitMetrics() {
+    if (!editorBody) {
+      return null;
+    }
+
+    const rect = editorBody.getBoundingClientRect();
+    const availableWidth = rect.width - EDITOR_SPLITTER_WIDTH - (EDITOR_SPLITTER_GAP * 2);
+    if (availableWidth <= 0) {
+      return null;
+    }
+
+    return {
+      rect,
+      availableWidth
+    };
+  }
+
+  function beginSplitDrag(event) {
+    if (!editorSplitter || state.layout.previewCollapsed) {
+      return;
+    }
+
+    event.preventDefault();
+    editorSplitter.setPointerCapture(event.pointerId);
+
+    const metrics = getSplitMetrics();
+    if (!metrics) {
+      try {
+        editorSplitter.releasePointerCapture(event.pointerId);
+      } catch (error) {
+        // Ignore release errors if capture was not established.
+      }
+      return;
+    }
+
+    const dragState = {
+      pointerId: event.pointerId,
+      rectLeft: metrics.rect.left,
+      availableWidth: metrics.availableWidth
+    };
+
+    const onPointerMove = (moveEvent) => {
+      if (moveEvent.pointerId !== dragState.pointerId) {
+        return;
+      }
+
+      const relativeX = moveEvent.clientX - dragState.rectLeft;
+      const ratio = (relativeX / dragState.availableWidth) * 100;
+      setPanelRatio(ratio, true);
+    };
+
+    const onPointerUp = (upEvent) => {
+      if (upEvent.pointerId !== dragState.pointerId) {
+        return;
+      }
+
+      editorSplitter.removeEventListener('pointermove', onPointerMove);
+      editorSplitter.removeEventListener('pointerup', onPointerUp);
+      editorSplitter.removeEventListener('pointercancel', onPointerUp);
+      try {
+        editorSplitter.releasePointerCapture(dragState.pointerId);
+      } catch (error) {
+        // Ignore release errors if the pointer is already gone.
+      }
+    };
+
+    editorSplitter.addEventListener('pointermove', onPointerMove);
+    editorSplitter.addEventListener('pointerup', onPointerUp);
+    editorSplitter.addEventListener('pointercancel', onPointerUp);
+  }
+
+  function handleSplitterKeydown(event) {
+    if (state.layout.previewCollapsed) {
+      return;
+    }
+
+    let nextRatio = state.layout.splitRatio;
+    if (event.key === 'ArrowLeft') {
+      nextRatio -= 5;
+    } else if (event.key === 'ArrowRight') {
+      nextRatio += 5;
+    } else if (event.key === 'Home') {
+      nextRatio = MIN_PANEL_RATIO;
+    } else if (event.key === 'End') {
+      nextRatio = MAX_PANEL_RATIO;
+    } else {
+      return;
+    }
+
+    event.preventDefault();
+    setPanelRatio(nextRatio, true);
+  }
+
   function renderCounts() {
     if (blockCount) {
       blockCount.textContent = String(state.blocks.length);
@@ -140,7 +356,7 @@ document.addEventListener('DOMContentLoaded', () => {
       documentCount.textContent = String(state.documents.length);
     }
     if (attachedCount) {
-      attachedCount.textContent = `${state.currentDocumentBlockIds.length} part${state.currentDocumentBlockIds.length === 1 ? '' : 's'} placed`;
+      attachedCount.textContent = `${state.currentDocumentBlockIds.length} fragment${state.currentDocumentBlockIds.length === 1 ? '' : 's'} placed`;
     }
   }
 
@@ -154,7 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!state.blocks.length) {
       const empty = document.createElement('div');
       empty.className = 'memo-empty';
-      empty.textContent = 'No saved blocks yet. Use the sidebar to save notes, URLs, or images.';
+      empty.textContent = 'No saved fragments yet. Use the sidebar to save notes, URLs, or images.';
       blockList.appendChild(empty);
       return;
     }
@@ -316,7 +532,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const meta = document.createElement('p');
     meta.className = 'document-meta';
-    meta.textContent = `${Array.isArray(document.blockIds) ? document.blockIds.length : 0} placed parts`;
+    meta.textContent = `${Array.isArray(document.blockIds) ? document.blockIds.length : 0} placed fragments`;
     titleWrap.appendChild(meta);
 
     head.appendChild(titleWrap);
@@ -393,6 +609,14 @@ document.addEventListener('DOMContentLoaded', () => {
   function markDirty() {
     state.isDirty = true;
     refreshStatus();
+  }
+
+  function formatTodayYyyyMmDd() {
+    const now = new Date();
+    const year = String(now.getFullYear());
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}${month}${day}`;
   }
 
   function refreshStatus() {
@@ -614,7 +838,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function getBlockTitle(block) {
     if (!block) {
-      return 'Untitled part';
+      return 'Untitled fragment';
     }
 
     if (block.type === 'url') {
@@ -626,7 +850,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const text = block.content && typeof block.content.text === 'string' ? block.content.text.trim() : '';
-    return text ? text.split('\n')[0].slice(0, 80) : 'Text part';
+    return text ? text.split('\n')[0].slice(0, 80) : 'Text fragment';
   }
 
   function getBlockSnippet(block) {
