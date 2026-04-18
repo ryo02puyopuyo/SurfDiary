@@ -13,7 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const exportDocumentBtn = document.getElementById('export-document-btn');
   const clearDocumentBtn = document.getElementById('clear-document-btn');
   const previewObjectUrls = [];
-  const EXPORT_PICKER_ID = 'surfdiary-document-export';
+  const EXPORT_FILE_PICKER_ID = 'surfdiary-document-export-file';
+  const EXPORT_DIR_PICKER_ID = 'surfdiary-document-export-dir';
   const ASSET_DIR_NAME = 'SDAssets';
 
   const state = {
@@ -76,6 +77,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   browser.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.surfdiaryState) {
+      loadState();
+    }
+  });
+
+  browser.runtime.onMessage.addListener((message) => {
+    if (message && message.type === 'surfdiary-state-changed') {
       loadState();
     }
   });
@@ -1049,34 +1056,41 @@ document.addEventListener('DOMContentLoaded', () => {
     const markdown = documentData
       ? documentData.markdown || ''
       : markdownForCurrentDocument();
+    const exportBlocks = getDocumentExportBlocks(documentData);
     const fileName = `${sanitizeFileName(title) || 'untitled-diary'}.md`;
 
+    // Always use a folder-based export so the same save flow works with or without images.
     if (typeof window.showDirectoryPicker === 'function') {
       try {
         const directoryHandle = await window.showDirectoryPicker({
-          id: EXPORT_PICKER_ID,
-          mode: 'readwrite',
-          startIn: 'documents',
+          id: EXPORT_DIR_PICKER_ID,
+          mode: 'readwrite'
         });
 
-        const exportResult = await exportMarkdownWithAssets(markdown, directoryHandle);
-        await writeTextFile(directoryHandle, fileName, exportResult.markdown);
+        const exportResult = await exportMarkdownWithAssets(markdown, directoryHandle, exportBlocks);
+        const finalMarkdown = exportResult && typeof exportResult.markdown === 'string'
+          ? exportResult.markdown
+          : markdown;
+        const uniqueFileName = await ensureUniqueDirectoryFileName(directoryHandle, fileName);
+
+        // Always write the markdown file, even if asset export partially fails.
+        await writeTextFile(directoryHandle, uniqueFileName, finalMarkdown);
         return;
       } catch (error) {
         if (error && error.name === 'AbortError') {
           return;
         }
 
-        console.error('showDirectoryPicker export failed, falling back to save file', error);
+        console.error('showDirectoryPicker export failed, falling back to file save', error);
       }
     }
 
+    // Plain markdown can be saved directly as a file, which works better on Desktop.
     if (typeof window.showSaveFilePicker === 'function') {
       try {
         const handle = await window.showSaveFilePicker({
-          id: EXPORT_PICKER_ID,
+          id: EXPORT_FILE_PICKER_ID,
           suggestedName: fileName,
-          startIn: 'documents',
           types: [{
             description: 'Markdown',
             accept: { 'text/markdown': ['.md', '.markdown'] }
@@ -1108,26 +1122,101 @@ document.addEventListener('DOMContentLoaded', () => {
     window.setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
-  async function exportMarkdownWithAssets(markdown, directoryHandle) {
-    const imageUrls = extractMarkdownImageUrls(markdown);
-    if (imageUrls.length === 0) {
-      return { markdown, assetMap: new Map() };
+  async function exportMarkdownWithAssets(markdown, directoryHandle, sourceBlocks = []) {
+    const assetMap = new Map();
+    const imageSources = collectExportImageSources(markdown, sourceBlocks);
+
+    if (imageSources.length === 0) {
+      return { markdown, assetMap };
     }
 
-    const assetDirectory = await directoryHandle.getDirectoryHandle(ASSET_DIR_NAME, { create: true });
-    const assetMap = new Map();
+    try {
+      const assetDirectory = await directoryHandle.getDirectoryHandle(ASSET_DIR_NAME, { create: true });
 
-    for (const sourceUrl of imageUrls) {
-      const exported = await exportMarkdownImageAsset(sourceUrl, assetDirectory);
-      if (exported) {
-        assetMap.set(sourceUrl, `${ASSET_DIR_NAME}/${exported.fileName}`);
+      for (const imageSource of imageSources) {
+        const exported = await exportMarkdownImageAsset(imageSource.sourceUrl, assetDirectory, imageSource);
+        if (exported) {
+          for (const aliasUrl of imageSource.aliasUrls) {
+            assetMap.set(aliasUrl, `${ASSET_DIR_NAME}/${exported.fileName}`);
+          }
+        }
       }
+    } catch (error) {
+      console.error('Failed to prepare asset directory, saving markdown without asset rewrites', error);
+      return { markdown, assetMap };
     }
 
     return {
       markdown: rewriteMarkdownImageUrls(markdown, assetMap),
       assetMap
     };
+  }
+
+  async function ensureUniqueDirectoryFileName(directoryHandle, desiredFileName) {
+    const normalizedName = sanitizeFileName(desiredFileName).trim();
+    if (!normalizedName) {
+      return 'untitled-diary.md';
+    }
+
+    const { baseName, extension } = splitFileName(normalizedName);
+    let candidate = normalizedName;
+    let counter = 1;
+
+    while (await directoryEntryExists(directoryHandle, candidate)) {
+      candidate = `${baseName} (${counter})${extension}`;
+      counter += 1;
+    }
+
+    return candidate;
+  }
+
+  async function directoryEntryExists(directoryHandle, fileName) {
+    try {
+      await directoryHandle.getFileHandle(fileName, { create: false });
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function collectExportImageSources(markdown, sourceBlocks = []) {
+    const sources = [];
+    const seen = new Set();
+    const blockList = Array.isArray(sourceBlocks) ? sourceBlocks : [];
+
+    blockList.forEach((block) => {
+      if (!block || block.type !== 'image') {
+        return;
+      }
+
+      const sourceUrl = getExportImageSourceUrl(block);
+      if (!sourceUrl || seen.has(sourceUrl)) {
+        return;
+      }
+
+      seen.add(sourceUrl);
+      sources.push({
+        block,
+        sourceUrl,
+        aliasUrls: getExportImageAliasUrls(block)
+      });
+    });
+
+    const markdownUrls = extractMarkdownImageUrls(markdown);
+    markdownUrls.forEach((sourceUrl) => {
+      if (!sourceUrl || seen.has(sourceUrl)) {
+        return;
+      }
+
+      seen.add(sourceUrl);
+      sources.push({
+        block: null,
+        sourceUrl,
+        aliasUrls: [sourceUrl]
+      });
+    });
+
+    return sources;
   }
 
   function extractMarkdownImageUrls(markdown) {
@@ -1166,11 +1255,27 @@ document.addEventListener('DOMContentLoaded', () => {
       .replace(/^<|>$/g, '');
   }
 
+  function splitFileName(fileName) {
+    const normalized = String(fileName || '').trim();
+    const lastDotIndex = normalized.lastIndexOf('.');
+    if (lastDotIndex <= 0) {
+      return {
+        baseName: normalized || 'untitled-diary',
+        extension: ''
+      };
+    }
+
+    return {
+      baseName: normalized.slice(0, lastDotIndex),
+      extension: normalized.slice(lastDotIndex)
+    };
+  }
+
   function isLocalMarkdownImageUrl(value) {
     return typeof value === 'string' && !/^(?:https?:|data:|blob:|file:|\/\/)/i.test(value);
   }
 
-  async function exportMarkdownImageAsset(sourceUrl, assetDirectory) {
+  async function exportMarkdownImageAsset(sourceUrl, assetDirectory, imageSource = null) {
     try {
       const response = await fetch(sourceUrl);
       if (!response.ok) {
@@ -1178,7 +1283,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const blob = await response.blob();
-      const fileName = await createAssetFileName(sourceUrl, blob);
+      const fileName = imageSource && imageSource.block
+        ? await createAssetFileName(getExportImageSourceUrl(imageSource.block), blob)
+        : await createAssetFileName(sourceUrl, blob);
       await writeBinaryFile(assetDirectory, fileName, blob);
       return { fileName, mimeType: blob.type || '' };
     } catch (error) {
@@ -1215,6 +1322,51 @@ document.addEventListener('DOMContentLoaded', () => {
     const data = new TextEncoder().encode(String(value || ''));
     const digest = await crypto.subtle.digest('SHA-256', data);
     return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+  }
+
+  function getDocumentExportBlocks(documentData) {
+    const blockIds = Array.isArray(documentData && documentData.blockIds)
+      ? documentData.blockIds
+      : Array.isArray(state.currentDocumentBlockIds)
+        ? state.currentDocumentBlockIds
+        : [];
+
+    if (!blockIds.length) {
+      return [];
+    }
+
+    return blockIds
+      .map((blockId) => getBlockById(blockId))
+      .filter((block) => block && block.type === 'image');
+  }
+
+  function getExportImageSourceUrl(block) {
+    return (block && block.content && typeof block.content.originalImageUrl === 'string' && block.content.originalImageUrl)
+      || (block && block.source && typeof block.source.originalImageUrl === 'string' && block.source.originalImageUrl)
+      || (block && block.content && typeof block.content.imageUrl === 'string' && block.content.imageUrl)
+      || (block && block.source && typeof block.source.imageUrl === 'string' && block.source.imageUrl)
+      || '';
+  }
+
+  function getExportImageAliasUrls(block) {
+    const urls = [];
+    const values = [
+      block && block.content && block.content.originalImageUrl,
+      block && block.source && block.source.originalImageUrl,
+      block && block.content && block.content.imageUrl,
+      block && block.source && block.source.imageUrl,
+      block && block.content && block.content.previewImageUrl,
+      block && block.source && block.source.previewImageUrl
+    ];
+
+    values.forEach((value) => {
+      const url = normalizeMarkdownImageUrl(value);
+      if (url && !urls.includes(url)) {
+        urls.push(url);
+      }
+    });
+
+    return urls;
   }
 
   async function writeTextFile(directoryHandle, fileName, content) {

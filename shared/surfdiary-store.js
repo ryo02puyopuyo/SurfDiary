@@ -30,6 +30,21 @@
     return JSON.parse(JSON.stringify(value));
   }
 
+  async function notifyStateChanged(reason = 'updated') {
+    if (!root.browser || !browser.runtime || typeof browser.runtime.sendMessage !== 'function') {
+      return;
+    }
+
+    try {
+      await browser.runtime.sendMessage({
+        type: 'surfdiary-state-changed',
+        reason
+      });
+    } catch (error) {
+      // Ignore delivery failures when no listeners are available.
+    }
+  }
+
   function normalizeString(value) {
     return typeof value === 'string' && value.trim() ? value.trim() : '';
   }
@@ -242,6 +257,7 @@
         normalized.documents.length !== (Array.isArray(current.documents) ? current.documents.length : 0)
       ) {
         await browser.storage.local.set({ [STORAGE_KEY]: normalized });
+        await notifyStateChanged('normalized');
       }
 
       return normalized;
@@ -252,6 +268,7 @@
     migratedState.blocks = migratedBlocks;
 
     await browser.storage.local.set({ [STORAGE_KEY]: migratedState });
+    await notifyStateChanged('migrated');
     return migratedState;
   }
 
@@ -266,6 +283,7 @@
     };
 
     await browser.storage.local.set({ [STORAGE_KEY]: nextState });
+    await notifyStateChanged('block-saved');
     return block;
   }
 
@@ -301,6 +319,7 @@
     };
 
     await browser.storage.local.set({ [STORAGE_KEY]: nextState });
+    await notifyStateChanged('block-updated');
     return updatedBlock;
   }
 
@@ -320,6 +339,7 @@
     };
 
     await browser.storage.local.set({ [STORAGE_KEY]: nextState });
+    await notifyStateChanged('block-deleted');
     return true;
   }
 
@@ -361,6 +381,7 @@
     };
 
     await browser.storage.local.set({ [STORAGE_KEY]: nextState });
+    await notifyStateChanged('branch-created');
     return branch;
   }
 
@@ -388,6 +409,7 @@
     };
 
     await browser.storage.local.set({ [STORAGE_KEY]: nextState });
+    await notifyStateChanged('document-saved');
     return document;
   }
 
@@ -423,6 +445,7 @@
     };
 
     await browser.storage.local.set({ [STORAGE_KEY]: nextState });
+    await notifyStateChanged('document-updated');
     return updatedDocument;
   }
 
@@ -442,6 +465,7 @@
     };
 
     await browser.storage.local.set({ [STORAGE_KEY]: nextState });
+    await notifyStateChanged('document-deleted');
     return true;
   }
 

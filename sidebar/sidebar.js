@@ -1471,4 +1471,10 @@ document.addEventListener('DOMContentLoaded', () => {
       loadState();
     }
   });
+
+  browser.runtime.onMessage.addListener((message) => {
+    if (message && message.type === 'surfdiary-state-changed') {
+      loadState();
+    }
+  });
 });
