@@ -16,11 +16,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const newDocumentBtn = document.getElementById('new-document-btn');
   const saveDocumentBtn = document.getElementById('save-document-btn');
   const exportDocumentBtn = document.getElementById('export-document-btn');
+  const exportHelpBtn = document.getElementById('export-help-btn');
+  const exportHelpOverlay = document.getElementById('export-help-overlay');
+  const exportHelpCloseBtn = document.getElementById('export-help-close-btn');
   const clearDocumentBtn = document.getElementById('clear-document-btn');
   const previewObjectUrls = [];
   const EXPORT_FILE_PICKER_ID = 'surfdiary-document-export-file';
   const EXPORT_DIR_PICKER_ID = 'surfdiary-document-export-dir';
   const ASSET_DIR_NAME = 'SDAssets';
+  const SENSITIVE_EXPORT_DIRECTORY_NAMES = new Set(['desktop', 'downloads']);
   const LAYOUT_STORAGE_KEY = 'surfdiary-editor-layout';
   const EDITOR_SPLITTER_WIDTH = 10;
   const EDITOR_SPLITTER_GAP = 16;
@@ -97,6 +101,26 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  if (exportHelpBtn) {
+    exportHelpBtn.addEventListener('click', () => {
+      openExportHelp();
+    });
+  }
+
+  if (exportHelpCloseBtn) {
+    exportHelpCloseBtn.addEventListener('click', () => {
+      closeExportHelp();
+    });
+  }
+
+  if (exportHelpOverlay) {
+    exportHelpOverlay.addEventListener('click', (event) => {
+      if (event.target === exportHelpOverlay) {
+        closeExportHelp();
+      }
+    });
+  }
+
   if (clearDocumentBtn) {
     clearDocumentBtn.addEventListener('click', clearCurrentDocument);
   }
@@ -111,6 +135,12 @@ document.addEventListener('DOMContentLoaded', () => {
     editorSplitter.addEventListener('pointerdown', beginSplitDrag);
     editorSplitter.addEventListener('keydown', handleSplitterKeydown);
   }
+
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && exportHelpOverlay && !exportHelpOverlay.hidden) {
+      closeExportHelp();
+    }
+  });
 
   browser.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.surfdiaryState) {
@@ -1291,6 +1321,11 @@ document.addEventListener('DOMContentLoaded', () => {
           mode: 'readwrite'
         });
 
+        if (shouldWarnAboutSensitiveExportDirectory(directoryHandle)) {
+          showSensitiveExportDirectoryWarning(directoryHandle);
+          return;
+        }
+
         const exportResult = await exportMarkdownWithAssets(markdown, directoryHandle, exportBlocks);
         const finalMarkdown = exportResult && typeof exportResult.markdown === 'string'
           ? exportResult.markdown
@@ -1302,6 +1337,14 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       } catch (error) {
         if (error && error.name === 'AbortError') {
+          if (isSensitiveExportDirectoryError(error)) {
+            showSensitiveExportDirectoryWarning(null, error);
+          }
+          return;
+        }
+
+        if (isSensitiveExportDirectoryError(error)) {
+          showSensitiveExportDirectoryWarning(null, error);
           return;
         }
 
@@ -1392,6 +1435,86 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     return candidate;
+  }
+
+  function shouldWarnAboutSensitiveExportDirectory(directoryHandle) {
+    const directoryName = normalizeDirectoryHandleName(directoryHandle);
+    return directoryName ? SENSITIVE_EXPORT_DIRECTORY_NAMES.has(directoryName) : false;
+  }
+
+  function showSensitiveExportDirectoryWarning(directoryHandle, error = null) {
+    const directoryName = normalizeDirectoryHandleName(directoryHandle) || 'Desktop/Downloads';
+    const message = [
+      `${directoryName} 直下は、ブラウザの制限で保存に失敗しやすいです。`,
+      error && error.message ? `理由: ${error.message}` : '',
+      '',
+      '回避方法:',
+      '・Desktop / Downloads の中に新しい通常フォルダを作る',
+      '・そのサブフォルダを選んで保存する',
+      '・例: Desktop\\SurfDiary や Downloads\\Diary',
+      '',
+      'SDAssets も、そのサブフォルダの中に作成されます。'
+    ].filter(Boolean).join('\n');
+
+    if (typeof window.alert === 'function') {
+      window.alert(message);
+    } else {
+      console.warn(message);
+    }
+  }
+
+  function isSensitiveExportDirectoryError(error) {
+    if (!error || typeof error !== 'object') {
+      return false;
+    }
+
+    const name = String(error.name || '').toLowerCase();
+    const message = String(error.message || '').toLowerCase();
+    if (name !== 'aborterror') {
+      return false;
+    }
+
+    return (
+      message.includes('system files')
+      || message.includes('sensitive')
+      || message.includes('dangerous')
+      || message.includes('desktop')
+      || message.includes('downloads')
+    );
+  }
+
+  function normalizeDirectoryHandleName(directoryHandle) {
+    const name = directoryHandle && typeof directoryHandle.name === 'string'
+      ? directoryHandle.name.trim().toLowerCase()
+      : '';
+
+    if (name === 'desktop' || name === 'downloads') {
+      return name;
+    }
+
+    return '';
+  }
+
+  function openExportHelp() {
+    if (!exportHelpOverlay) {
+      return;
+    }
+
+    exportHelpOverlay.hidden = false;
+    if (exportHelpCloseBtn && typeof exportHelpCloseBtn.focus === 'function') {
+      window.setTimeout(() => exportHelpCloseBtn.focus(), 0);
+    }
+  }
+
+  function closeExportHelp() {
+    if (!exportHelpOverlay) {
+      return;
+    }
+
+    exportHelpOverlay.hidden = true;
+    if (exportHelpBtn && typeof exportHelpBtn.focus === 'function') {
+      exportHelpBtn.focus();
+    }
   }
 
   async function directoryEntryExists(directoryHandle, fileName) {

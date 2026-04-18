@@ -45,6 +45,7 @@
           <button id="clear-document-btn" class="secondary-btn" type="button">Clear</button>
           <button id="save-document-btn" class="secondary-btn" type="button">Save diary</button>
           <button id="export-document-btn" class="primary-btn" type="button">Export .md</button>
+          <button id="export-help-btn" class="help-btn" type="button" aria-label="Export help" title="How export works">?</button>
         </div>
       </header>
 
@@ -67,6 +68,23 @@
         </section>
       </div>
     </main>
+  </div>
+  <div id="export-help-overlay" class="export-help-overlay" hidden>
+    <div class="export-help-dialog" role="dialog" aria-modal="true" aria-labelledby="export-help-title">
+      <div class="export-help-header">
+        <h2 id="export-help-title">Export .md の仕組み</h2>
+        <button id="export-help-close-btn" class="help-close-btn" type="button" aria-label="Close help">×</button>
+      </div>
+      <div class="export-help-body">
+        <p>保存時は、まず保存先のフォルダを選びます。</p>
+        <ul>
+          <li>選んだフォルダの中に `.md` ファイルを作成します。</li>
+          <li>画像を含む場合は、同じフォルダの中に `SDAssets` フォルダを作り、画像データを保存します。</li>
+          <li>画像を含まない場合も、保存先は同じくフォルダ選択です。</li>
+        </ul>
+        <p class="export-help-note">注意: `Desktop` / `Documents` / `Downloads` の直下は、ブラウザの仕様上うまく保存できないことがあります。これらの中にある通常フォルダを選ぶと保存できます。</p>
+      </div>
+    </div>
   </div>
   <script src="../shared/webext-compat.js"></script>
   <script src="../shared/surfdiary-store.js"></script>

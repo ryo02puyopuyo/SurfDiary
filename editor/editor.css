@@ -343,6 +343,118 @@ body {
   background-color: #e8edf5;
 }
 
+.help-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid #d2d2d7;
+  background: linear-gradient(180deg, #ffffff 0%, #f2f4f8 100%);
+  color: #1d1d1f;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+  transition: transform 0.12s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.help-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
+}
+
+.help-btn:focus-visible,
+.help-close-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.22);
+}
+
+.export-help-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.46);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 9999;
+}
+
+.export-help-overlay[hidden] {
+  display: none;
+}
+
+.export-help-dialog {
+  width: min(680px, 100%);
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.28);
+  padding: 22px 24px 20px;
+}
+
+.export-help-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.export-help-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.help-close-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid #d2d2d7;
+  background: #f2f4f8;
+  color: #1d1d1f;
+  font-family: inherit;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.export-help-body {
+  color: #374151;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.export-help-body p {
+  margin: 0 0 12px;
+}
+
+.export-help-body ul {
+  margin: 0 0 14px 20px;
+  padding: 0;
+}
+
+.export-help-body li + li {
+  margin-top: 6px;
+}
+
+.export-help-note {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+}
+
 .today-btn {
   flex: 0 0 auto;
   padding-inline: 16px;
