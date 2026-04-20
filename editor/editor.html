@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -36,11 +36,11 @@
           <h1>Document Builder</h1>
           <div class="title-row">
             <input id="document-title-input" class="title-input" type="text" placeholder="Document title" />
+            <span class="title-gap" aria-hidden="true"></span>
             <button id="today-title-btn" class="secondary-btn today-btn" type="button">today</button>
           </div>
         </div>
         <div class="editor-header-actions">
-          <button id="toggle-preview-btn" class="secondary-btn preview-toggle-btn" type="button">Collapse preview</button>
           <button id="new-document-btn" class="secondary-btn" type="button">New</button>
           <button id="clear-document-btn" class="secondary-btn" type="button">Clear</button>
           <button id="save-document-btn" class="secondary-btn" type="button">Save diary</button>
@@ -53,7 +53,10 @@
         <section class="draft-panel">
           <div class="draft-meta">
             <div id="document-status" class="document-status">Draft ready</div>
-            <div id="attached-count" class="attached-count">0 fragments placed</div>
+            <div class="attached-meta-row">
+              <div id="attached-count" class="attached-count">0 fragments placed</div>
+              <button id="toggle-preview-btn" class="preview-toggle-btn" type="button" aria-label="Collapse preview" aria-pressed="false" title="Collapse preview">◂</button>
+            </div>
           </div>
           <textarea id="document-body" class="document-body" placeholder="Type your diary here, or drop saved fragments into this area."></textarea>
         </section>
@@ -69,23 +72,38 @@
       </div>
     </main>
   </div>
-  <div id="export-help-overlay" class="export-help-overlay" hidden>
-    <div class="export-help-dialog" role="dialog" aria-modal="true" aria-labelledby="export-help-title">
+
+  <div id="export-guidance-overlay" class="export-help-overlay" hidden>
+    <div class="export-help-dialog" role="dialog" aria-modal="true" aria-labelledby="export-guidance-title">
       <div class="export-help-header">
-        <h2 id="export-help-title">Export .md の仕組み</h2>
-        <button id="export-help-close-btn" class="help-close-btn" type="button" aria-label="Close help">×</button>
+        <div class="export-help-heading">
+          <p class="export-help-kicker">Export Guide</p>
+          <h2 id="export-guidance-title">Export .md の使い方と注意点</h2>
+        </div>
+        <button id="export-guidance-close-btn" class="help-close-btn" type="button" aria-label="Close help">×</button>
       </div>
       <div class="export-help-body">
-        <p>保存時は、まず保存先のフォルダを選びます。</p>
+        <p>ドキュメントを保存するフォルダを選択します。</p>
         <ul>
-          <li>選んだフォルダの中に `.md` ファイルを作成します。</li>
-          <li>画像を含む場合は、同じフォルダの中に `SDAssets` フォルダを作り、画像データを保存します。</li>
-          <li>画像を含まない場合も、保存先は同じくフォルダ選択です。</li>
+          <li><code>.md</code> ファイルと <code>assets</code> フォルダが作成されます。</li>
+          <li><code>assets</code> フォルダには、ドキュメントで使われたの画像ファイルが保存されます。</li>
         </ul>
-        <p class="export-help-note">注意: `Desktop` / `Documents` / `Downloads` の直下は、ブラウザの仕様上うまく保存できないことがあります。これらの中にある通常フォルダを選ぶと保存できます。</p>
+        <p class="export-help-note">注意: <code>Desktop</code> / <code>Documents</code> / <code>Downloads</code> などのシステムフォルダ直下は、保存に失敗することがあります。中に新しいフォルダを作って、そのフォルダを選んでください。</p>
+        <div class="export-help-example">
+          <div class="export-help-example-row"><strong>o</strong> <code>C://hoge/<span class="export-path-ok">Desktop/abcde</span></code></div>
+          <div class="export-help-example-row"><strong>x</strong> <code>C://hoge/<span class="export-path-ng">Desktop</span></code></div>
+        </div>
+        <label class="export-help-checkbox">
+          <input id="export-guidance-dont-show-again" type="checkbox" />
+          <span>次回からこの説明を表示しない</span>
+        </label>
+        <div class="export-help-actions">
+          <button id="export-guidance-confirm-btn" class="primary-btn" type="button">Export .md を続ける</button>
+        </div>
       </div>
     </div>
   </div>
+
   <script src="../shared/webext-compat.js"></script>
   <script src="../shared/surfdiary-store.js"></script>
   <script src="editor.js"></script>

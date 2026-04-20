@@ -17,8 +17,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const saveDocumentBtn = document.getElementById('save-document-btn');
   const exportDocumentBtn = document.getElementById('export-document-btn');
   const exportHelpBtn = document.getElementById('export-help-btn');
-  const exportHelpOverlay = document.getElementById('export-help-overlay');
-  const exportHelpCloseBtn = document.getElementById('export-help-close-btn');
+  const exportHelpOverlay = document.getElementById('export-guidance-overlay');
+  const exportHelpCloseBtn = document.getElementById('export-guidance-close-btn');
+  const exportHelpConfirmBtn = document.getElementById('export-guidance-confirm-btn');
+  const exportHelpDontShowAgain = document.getElementById('export-guidance-dont-show-again');
+  const exportHelpActions = document.querySelector('.export-help-actions');
   const clearDocumentBtn = document.getElementById('clear-document-btn');
   const previewObjectUrls = [];
   const EXPORT_FILE_PICKER_ID = 'surfdiary-document-export-file';
@@ -26,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const ASSET_DIR_NAME = 'SDAssets';
   const SENSITIVE_EXPORT_DIRECTORY_NAMES = new Set(['desktop', 'downloads']);
   const LAYOUT_STORAGE_KEY = 'surfdiary-editor-layout';
+  const EXPORT_HELP_STORAGE_KEY = 'surfdiary-export-help-hidden';
   const EDITOR_SPLITTER_WIDTH = 10;
   const EDITOR_SPLITTER_GAP = 16;
   const MIN_PANEL_RATIO = 30;
@@ -48,6 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   loadLayoutState();
   applyLayoutState();
+  loadExportHelpState();
   loadState();
 
   if (documentTitleInput) {
@@ -95,6 +100,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (exportDocumentBtn) {
     exportDocumentBtn.addEventListener('click', () => {
+      if (shouldShowExportHelp()) {
+        openExportHelp({ showActions: true });
+        return;
+      }
+
       exportCurrentDocument().catch((error) => {
         console.error('Failed to export current document', error);
       });
@@ -103,13 +113,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (exportHelpBtn) {
     exportHelpBtn.addEventListener('click', () => {
-      openExportHelp();
+      openExportHelp({ showActions: false });
     });
   }
 
   if (exportHelpCloseBtn) {
     exportHelpCloseBtn.addEventListener('click', () => {
       closeExportHelp();
+    });
+  }
+
+  if (exportHelpConfirmBtn) {
+    exportHelpConfirmBtn.addEventListener('click', () => {
+      if (exportHelpDontShowAgain && exportHelpDontShowAgain.checked) {
+        setExportHelpSuppressed(true);
+      }
+
+      closeExportHelp();
+      exportCurrentDocument().catch((error) => {
+        console.error('Failed to export current document', error);
+      });
+    });
+  }
+
+  if (exportHelpDontShowAgain) {
+    exportHelpDontShowAgain.addEventListener('change', () => {
+      setExportHelpSuppressed(exportHelpDontShowAgain.checked);
     });
   }
 
@@ -203,14 +232,14 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const raw = window.localStorage.getItem(LAYOUT_STORAGE_KEY);
       if (!raw) {
+        state.layout.previewCollapsed = false;
+        state.layout.splitRatio = DEFAULT_PANEL_RATIO;
         return;
       }
 
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object') {
-        if (typeof parsed.previewCollapsed === 'boolean') {
-          state.layout.previewCollapsed = parsed.previewCollapsed;
-        }
+        state.layout.previewCollapsed = false;
 
         if (typeof parsed.splitRatio === 'number' && Number.isFinite(parsed.splitRatio)) {
           state.layout.splitRatio = clampPanelRatio(parsed.splitRatio);
@@ -229,6 +258,35 @@ document.addEventListener('DOMContentLoaded', () => {
       }));
     } catch (error) {
       console.warn('Failed to save editor layout preferences', error);
+    }
+  }
+
+  function loadExportHelpState() {
+    if (!exportHelpDontShowAgain) {
+      return;
+    }
+
+    try {
+      exportHelpDontShowAgain.checked = window.localStorage.getItem(EXPORT_HELP_STORAGE_KEY) === 'true';
+    } catch (error) {
+      console.warn('Failed to load export help preferences', error);
+    }
+  }
+
+  function setExportHelpSuppressed(hidden) {
+    try {
+      window.localStorage.setItem(EXPORT_HELP_STORAGE_KEY, hidden ? 'true' : 'false');
+    } catch (error) {
+      console.warn('Failed to save export help preferences', error);
+    }
+  }
+
+  function shouldShowExportHelp() {
+    try {
+      return window.localStorage.getItem(EXPORT_HELP_STORAGE_KEY) !== 'true';
+    } catch (error) {
+      console.warn('Failed to read export help preferences', error);
+      return true;
     }
   }
 
@@ -251,9 +309,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (togglePreviewBtn) {
-      togglePreviewBtn.textContent = state.layout.previewCollapsed ? 'Expand preview' : 'Collapse preview';
+      togglePreviewBtn.textContent = state.layout.previewCollapsed ? '▸' : '◂';
       togglePreviewBtn.setAttribute('aria-pressed', String(!state.layout.previewCollapsed));
-      togglePreviewBtn.title = state.layout.previewCollapsed ? 'Show markdown preview' : 'Hide markdown preview';
+      togglePreviewBtn.setAttribute('aria-label', state.layout.previewCollapsed ? 'Expand preview' : 'Collapse preview');
+      togglePreviewBtn.title = state.layout.previewCollapsed ? 'Expand preview' : 'Collapse preview';
     }
 
     if (editorSplitter) {
@@ -1495,14 +1554,39 @@ document.addEventListener('DOMContentLoaded', () => {
     return '';
   }
 
-  function openExportHelp() {
+  function setExportHelpActionVisibility(showActions) {
+    if (exportHelpConfirmBtn) {
+      exportHelpConfirmBtn.hidden = !showActions;
+    }
+
+    if (exportHelpDontShowAgain) {
+      exportHelpDontShowAgain.closest('.export-help-checkbox')?.toggleAttribute('hidden', !showActions);
+    }
+
+    if (exportHelpActions) {
+      exportHelpActions.hidden = !showActions;
+    }
+
+    if (exportHelpOverlay) {
+      exportHelpOverlay.dataset.showActions = showActions ? 'true' : 'false';
+    }
+  }
+
+  function openExportHelp(options = {}) {
     if (!exportHelpOverlay) {
       return;
     }
 
+    const showActions = options.showActions !== false;
+    setExportHelpActionVisibility(showActions);
     exportHelpOverlay.hidden = false;
-    if (exportHelpCloseBtn && typeof exportHelpCloseBtn.focus === 'function') {
-      window.setTimeout(() => exportHelpCloseBtn.focus(), 0);
+    if (showActions && exportHelpDontShowAgain) {
+      loadExportHelpState();
+    }
+
+    const focusTarget = showActions && exportHelpConfirmBtn ? exportHelpConfirmBtn : exportHelpCloseBtn;
+    if (focusTarget && typeof focusTarget.focus === 'function') {
+      window.setTimeout(() => focusTarget.focus(), 0);
     }
   }
 
