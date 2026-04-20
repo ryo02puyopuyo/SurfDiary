@@ -253,7 +253,6 @@
   function saveLayoutState() {
     try {
       window.localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify({
-        previewCollapsed: state.layout.previewCollapsed,
         splitRatio: state.layout.splitRatio
       }));
     } catch (error) {

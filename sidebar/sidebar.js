@@ -1046,7 +1046,7 @@
     const mergedText = [getBlockMergeText(target), getBlockMergeText(source)]
       .map((value) => value.trim())
       .filter(Boolean)
-      .join('\n\n')
+      .join('\n')
       .trim();
 
     if (!mergedText) {

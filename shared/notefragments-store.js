@@ -180,67 +180,9 @@
     };
   }
 
-  function legacyMemoToBlock(memo) {
-    if (!memo || typeof memo !== 'object') {
-      return null;
-    }
-
-    const source = {
-      title: memo.title || null,
-      pageUrl: memo.url || null,
-      url: memo.url || null,
-      imageUrl: memo.imageUrl || null,
-      previewImageUrl: memo.imageUrl || null,
-      originalImageUrl: memo.imageUrl || null
-    };
-
-    if (memo.type === 'image' || memo.imageUrl) {
-      return normalizeBlock({
-        id: memo.id,
-        type: 'image',
-        branchId: DEFAULT_BRANCH_ID,
-        content: {
-          imageUrl: memo.imageUrl || '',
-          previewImageUrl: memo.imageUrl || '',
-          originalImageUrl: memo.imageUrl || '',
-          text: memo.text || ''
-        },
-        source,
-        createdAt: memo.timestamp || new Date().toISOString()
-      });
-    }
-
-    if (memo.type === 'url' || memo.url) {
-      return normalizeBlock({
-        id: memo.id,
-        type: 'url',
-        branchId: DEFAULT_BRANCH_ID,
-        content: {
-          url: memo.url || '',
-          title: memo.title || '',
-          text: memo.text || ''
-        },
-        source,
-        createdAt: memo.timestamp || new Date().toISOString()
-      });
-    }
-
-    return normalizeBlock({
-      id: memo.id,
-      type: 'text',
-      branchId: DEFAULT_BRANCH_ID,
-      content: {
-        text: memo.text || ''
-      },
-      source,
-      createdAt: memo.timestamp || new Date().toISOString()
-    });
-  }
-
   async function readState() {
     const response = await browser.storage.local.get({ [STORAGE_KEY]: null });
     const current = response[STORAGE_KEY];
-    const legacyMemos = Array.isArray(response[LEGACY_KEY]) ? response[LEGACY_KEY] : [];
 
     if (current && typeof current === 'object') {
       const normalized = {
@@ -262,13 +204,10 @@
       return normalized;
     }
 
-    const migratedBlocks = legacyMemos.map(legacyMemoToBlock).filter(Boolean);
-    const migratedState = createDefaultState();
-    migratedState.blocks = migratedBlocks;
-
-    await browser.storage.local.set({ [STORAGE_KEY]: migratedState });
-    await notifyStateChanged('migrated');
-    return migratedState;
+    const defaultState = createDefaultState();
+    await browser.storage.local.set({ [STORAGE_KEY]: defaultState });
+    await notifyStateChanged('initialized');
+    return defaultState;
   }
 
   async function saveBlock(blockInput) {
@@ -484,7 +423,6 @@
     createDefaultState,
     ensureInboxBranch,
     normalizeBlock,
-    legacyMemoToBlock,
     readState,
     saveBlock,
     updateBlock,
