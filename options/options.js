@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+﻿document.addEventListener('DOMContentLoaded', () => {
   const localRootPath = document.getElementById('local-root-path');
   const localReadAccess = document.getElementById('local-read-access');
   const localWriteAccess = document.getElementById('local-write-access');
@@ -56,16 +56,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (downloadExportRootBtn) {
-    downloadExportRootBtn.addEventListener('click', () => tryDownloadsExportPath('SurfDiary-root-test.md'));
+    downloadExportRootBtn.addEventListener('click', () => tryDownloadsExportPath('NoteFragments-root-test.md'));
   }
 
   if (downloadExportNestedBtn) {
-    downloadExportNestedBtn.addEventListener('click', () => tryDownloadsExportPath('SurfDiary/tests/picker-test.md'));
+    downloadExportNestedBtn.addEventListener('click', () => tryDownloadsExportPath('NoteFragments/tests/picker-test.md'));
   }
 
   async function loadSettings() {
     try {
-      const config = await SurfDiaryConfig.readConfig();
+      const config = await NoteFragmentsConfig.readConfig();
       state.config = config;
 
       if (localRootPath) {
@@ -91,7 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function saveSettings() {
     try {
       const nextConfig = {
-        ...(state.config || SurfDiaryConfig.createDefaultConfig()),
+        ...(state.config || NoteFragmentsConfig.createDefaultConfig()),
         localFiles: {
           rootPath: localRootPath ? localRootPath.value.trim() : '',
           readAccess: localReadAccess ? localReadAccess.value : 'manual',
@@ -100,7 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       };
 
-      state.config = await SurfDiaryConfig.saveConfig(nextConfig);
+      state.config = await NoteFragmentsConfig.saveConfig(nextConfig);
       setStatus('Settings saved locally.');
     } catch (error) {
       console.error('Failed to save settings', error);
@@ -164,7 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const writable = await handle.createWritable();
       const content = [
-        '# SurfDiary picker test',
+        '# NoteFragments picker test',
         '',
         `Saved at: ${new Date().toISOString()}`,
         '',
@@ -279,7 +279,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  async function runDownloadsExport(saveAs, filename = 'SurfDiary/exports/picker-test.md') {
+  async function runDownloadsExport(saveAs, filename = 'NoteFragments/exports/picker-test.md') {
     setPickerLog(`runDownloadsExport entered (saveAs=${saveAs}, filename=${filename})`);
     if (typeof browser === 'undefined' || !browser.downloads || typeof browser.downloads.download !== 'function') {
       setPickerLog('browser.downloads.download is not available in this context.');
@@ -288,7 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setPickerLog(`downloads API detected (saveAs=${saveAs})`);
     const text = [
-      '# SurfDiary downloads test',
+      '# NoteFragments downloads test',
       '',
       `Exported at: ${new Date().toISOString()}`,
       '',
@@ -370,3 +370,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 });
+

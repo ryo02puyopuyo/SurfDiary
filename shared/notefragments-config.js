@@ -1,6 +1,6 @@
 (function () {
   const root = typeof globalThis !== 'undefined' ? globalThis : window;
-  const STORAGE_KEY = 'surfdiaryConfig';
+  const STORAGE_KEY = 'noteFragmentsConfig';
   const SCHEMA_VERSION = 2;
 
   function createDefaultConfig() {
@@ -116,7 +116,7 @@
     return merged;
   }
 
-  root.SurfDiaryConfig = {
+  const configApi = {
     STORAGE_KEY,
     SCHEMA_VERSION,
     createDefaultConfig,
@@ -126,4 +126,6 @@
     updateConfig,
     clone
   };
+
+  root.NoteFragmentsConfig = configApi;
 })();

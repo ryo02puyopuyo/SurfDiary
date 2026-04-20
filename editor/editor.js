@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+﻿document.addEventListener('DOMContentLoaded', () => {
   const blockList = document.getElementById('memo-list');
   const documentList = document.getElementById('document-list');
   const blockCount = document.getElementById('block-count');
@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const previewObjectUrls = [];
   const EXPORT_FILE_PICKER_ID = 'surfdiary-document-export-file';
   const EXPORT_DIR_PICKER_ID = 'surfdiary-document-export-dir';
-  const ASSET_DIR_NAME = 'SDAssets';
+  const ASSET_DIR_NAME = 'NFAssets';
   const SENSITIVE_EXPORT_DIRECTORY_NAMES = new Set(['desktop', 'downloads']);
   const LAYOUT_STORAGE_KEY = 'surfdiary-editor-layout';
   const EXPORT_HELP_STORAGE_KEY = 'surfdiary-export-help-hidden';
@@ -172,13 +172,13 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   browser.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && changes.surfdiaryState) {
+    if (area === 'local' && changes.noteFragmentsState) {
       loadState();
     }
   });
 
   browser.runtime.onMessage.addListener((message) => {
-    if (message && message.type === 'surfdiary-state-changed') {
+    if (message && message.type === 'notefragments-state-changed') {
       loadState();
     }
   });
@@ -186,9 +186,9 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadState() {
     try {
       const [blocks, branches, documents] = await Promise.all([
-        SurfDiaryStore.loadBlocks(),
-        SurfDiaryStore.loadBranches(),
-        SurfDiaryStore.loadDocuments()
+        NoteFragmentsStore.loadBlocks(),
+        NoteFragmentsStore.loadBranches(),
+        NoteFragmentsStore.loadDocuments()
       ]);
 
       state.blocks = blocks;
@@ -213,8 +213,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function sortBranches(branches) {
     const list = Array.isArray(branches) ? branches.slice() : [];
     return list.sort((a, b) => {
-      if (a.id === SurfDiaryStore.DEFAULT_BRANCH_ID) return -1;
-      if (b.id === SurfDiaryStore.DEFAULT_BRANCH_ID) return 1;
+      if (a.id === NoteFragmentsStore.DEFAULT_BRANCH_ID) return -1;
+      if (b.id === NoteFragmentsStore.DEFAULT_BRANCH_ID) return 1;
       return a.name.localeCompare(b.name);
     });
   }
@@ -844,9 +844,9 @@ document.addEventListener('DOMContentLoaded', () => {
       ? await resizeDataImageUrl(imageUrl)
       : imageUrl;
 
-    const block = await SurfDiaryStore.saveBlock({
+    const block = await NoteFragmentsStore.saveBlock({
       type: 'image',
-      branchId: SurfDiaryStore.DEFAULT_BRANCH_ID,
+      branchId: NoteFragmentsStore.DEFAULT_BRANCH_ID,
       content: {
         imageUrl: storedImageUrl,
         previewImageUrl: storedImageUrl,
@@ -1298,11 +1298,11 @@ document.addEventListener('DOMContentLoaded', () => {
       };
 
       let saved = state.currentDocumentId
-        ? await SurfDiaryStore.updateDocument(state.currentDocumentId, payload)
-        : await SurfDiaryStore.saveDocument(payload);
+        ? await NoteFragmentsStore.updateDocument(state.currentDocumentId, payload)
+        : await NoteFragmentsStore.saveDocument(payload);
 
       if (!saved) {
-        saved = await SurfDiaryStore.saveDocument(payload);
+        saved = await NoteFragmentsStore.saveDocument(payload);
       }
 
       if (!saved) {
@@ -1349,7 +1349,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      const removed = await SurfDiaryStore.deleteDocument(documentId);
+      const removed = await NoteFragmentsStore.deleteDocument(documentId);
       if (!removed) {
         return;
       }
@@ -1510,9 +1510,9 @@ document.addEventListener('DOMContentLoaded', () => {
       '回避方法:',
       '・Desktop / Downloads の中に新しい通常フォルダを作る',
       '・そのサブフォルダを選んで保存する',
-      '・例: Desktop\\SurfDiary や Downloads\\Diary',
+      '・例: Desktop\\NoteFragments や Downloads\\Diary',
       '',
-      'SDAssets も、そのサブフォルダの中に作成されます。'
+      'NFAssets も、そのサブフォルダの中に作成されます。'
     ].filter(Boolean).join('\n');
 
     if (typeof window.alert === 'function') {
@@ -1846,3 +1846,4 @@ document.addEventListener('DOMContentLoaded', () => {
     renderMarkdownPreview();
   }
 });
+

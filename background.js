@@ -1,4 +1,4 @@
-importScripts('shared/webext-compat.js', 'shared/surfdiary-store.js');
+importScripts('shared/webext-compat.js', 'shared/notefragments-store.js');
 
 const SIDE_PANEL_PATH = 'sidebar/sidebar.html';
 
@@ -43,7 +43,7 @@ if (!hasSidePanelApi()) {
         url: browser.runtime.getURL(SIDE_PANEL_PATH)
       });
     } catch (error) {
-      console.error('Failed to open SurfDiary page from toolbar action', error);
+      console.error('Failed to open NoteFragments page from toolbar action', error);
     }
   });
 }
@@ -127,7 +127,7 @@ browser.contextMenus.onClicked.addListener(async (info, tab) => {
       if (textToSave) {
         newBlock = {
           type: 'text',
-          branchId: SurfDiaryStore.DEFAULT_BRANCH_ID,
+          branchId: NoteFragmentsStore.DEFAULT_BRANCH_ID,
           content: {
             text: textToSave
           },
@@ -144,7 +144,7 @@ browser.contextMenus.onClicked.addListener(async (info, tab) => {
         const imageStorage = await prepareImageStorage(imageUrl);
         newBlock = {
           type: 'image',
-          branchId: SurfDiaryStore.DEFAULT_BRANCH_ID,
+          branchId: NoteFragmentsStore.DEFAULT_BRANCH_ID,
           content: {
             imageUrl: imageStorage.previewImageUrl,
             previewImageUrl: imageStorage.previewImageUrl,
@@ -167,7 +167,7 @@ browser.contextMenus.onClicked.addListener(async (info, tab) => {
     }
 
     if (newBlock) {
-      await SurfDiaryStore.saveBlock(newBlock);
+      await NoteFragmentsStore.saveBlock(newBlock);
     }
   } catch (error) {
     console.error('Failed to save from context menu', error);

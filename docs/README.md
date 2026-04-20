@@ -1,4 +1,4 @@
-# SurfDiary Docs
+# NoteFragments Docs
 
 この `docs/` 配下では、目的ごとに文書を分けています。
 
@@ -27,8 +27,8 @@
 
 ## ドキュメント一覧
 
-- [Project Overview](overview/SurfDiary_Project_Overview.md)
+- [Project Overview](overview/NoteFragments_Project_Overview.md)
 - [Specification](spec/仕様書.md)
 - [Usage Notes](usage/操作方法_備忘録_仕様書.md)
-- [Roadmap](roadmap/SurfDiary_Roadmap.md)
+- [Roadmap](roadmap/NoteFragments_Roadmap.md)
 - [Drag Implementation Memo](notes/ドラッグ実装メモ.md)

@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "SurfDiary",
+  "name": "NoteFragments",
   "version": "1.0",
   "description": "A seamless, browser-integrated memo and diary tool.",
   "icons": {
@@ -10,7 +10,7 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_title": "SurfDiary",
+    "default_title": "NoteFragments",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",

@@ -1,7 +1,6 @@
 (function () {
   const root = typeof globalThis !== 'undefined' ? globalThis : window;
-  const STORAGE_KEY = 'surfdiaryState';
-  const LEGACY_KEY = 'memos';
+  const STORAGE_KEY = 'noteFragmentsState';
   const SCHEMA_VERSION = 2;
   const DEFAULT_BRANCH_ID = 'inbox';
   const DEFAULT_BRANCH_NAME = 'Inbox';
@@ -37,7 +36,7 @@
 
     try {
       await browser.runtime.sendMessage({
-        type: 'surfdiary-state-changed',
+        type: 'notefragments-state-changed',
         reason
       });
     } catch (error) {
@@ -239,7 +238,7 @@
   }
 
   async function readState() {
-    const response = await browser.storage.local.get({ [STORAGE_KEY]: null, [LEGACY_KEY]: [] });
+    const response = await browser.storage.local.get({ [STORAGE_KEY]: null });
     const current = response[STORAGE_KEY];
     const legacyMemos = Array.isArray(response[LEGACY_KEY]) ? response[LEGACY_KEY] : [];
 
@@ -478,7 +477,7 @@
     });
   }
 
-  root.SurfDiaryStore = {
+  const storeApi = {
     DEFAULT_BRANCH_ID,
     DEFAULT_BRANCH_NAME,
     createId,
@@ -498,4 +497,6 @@
     deleteDocument,
     loadDocuments
   };
+
+  root.NoteFragmentsStore = storeApi;
 })();

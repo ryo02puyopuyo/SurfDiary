@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+﻿document.addEventListener('DOMContentLoaded', () => {
   const memoInput = document.getElementById('memo-input');
   const saveBtn = document.getElementById('save-btn');
   const memoList = document.getElementById('memo-list');
@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
       branchId: 'all',
       type: 'all'
     },
-    saveBranchId: SurfDiaryStore.DEFAULT_BRANCH_ID,
+    saveBranchId: NoteFragmentsStore.DEFAULT_BRANCH_ID,
     composeCollapsed: false,
     timelineCollapsed: false,
     draggingBlockId: null,
@@ -106,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
               url: activeTab.url
             }
           };
-          await SurfDiaryStore.saveBlock(newBlock);
+          await NoteFragmentsStore.saveBlock(newBlock);
           await loadState();
         }
       } catch (e) {
@@ -195,7 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     };
 
-    await SurfDiaryStore.saveBlock(newBlock);
+    await NoteFragmentsStore.saveBlock(newBlock);
     memoInput.value = '';
     await loadState();
   }
@@ -203,8 +203,8 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadState() {
     try {
       const [blocks, branches] = await Promise.all([
-        SurfDiaryStore.loadBlocks(),
-        SurfDiaryStore.loadBranches()
+        NoteFragmentsStore.loadBlocks(),
+        NoteFragmentsStore.loadBranches()
       ]);
 
       state.blocks = blocks;
@@ -214,16 +214,16 @@ document.addEventListener('DOMContentLoaded', () => {
       applyPanelState();
       await renderBlocks();
     } catch (e) {
-      console.error('Failed to load SurfDiary state', e);
-      renderStartupError('Failed to load SurfDiary state.', e);
+      console.error('Failed to load NoteFragments state', e);
+      renderStartupError('Failed to load NoteFragments state.', e);
     }
   }
 
   function sortBranches(branches) {
     const list = Array.isArray(branches) ? branches.slice() : [];
     return list.sort((a, b) => {
-      if (a.id === SurfDiaryStore.DEFAULT_BRANCH_ID) return -1;
-      if (b.id === SurfDiaryStore.DEFAULT_BRANCH_ID) return 1;
+      if (a.id === NoteFragmentsStore.DEFAULT_BRANCH_ID) return -1;
+      if (b.id === NoteFragmentsStore.DEFAULT_BRANCH_ID) return 1;
       return a.name.localeCompare(b.name);
     });
   }
@@ -274,7 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const fallback = state.branches.some((branch) => branch.id === previous)
       ? previous
-      : SurfDiaryStore.DEFAULT_BRANCH_ID;
+      : NoteFragmentsStore.DEFAULT_BRANCH_ID;
     saveBranchSelect.value = fallback;
     state.saveBranchId = fallback;
 
@@ -304,7 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     try {
-      const created = await SurfDiaryStore.createBranch({ name });
+      const created = await NoteFragmentsStore.createBranch({ name });
       if (!created) {
         return;
       }
@@ -324,7 +324,7 @@ document.addEventListener('DOMContentLoaded', () => {
       state.saveBranchId = saveBranchSelect.value;
       return saveBranchSelect.value;
     }
-    return state.saveBranchId || SurfDiaryStore.DEFAULT_BRANCH_ID;
+    return state.saveBranchId || NoteFragmentsStore.DEFAULT_BRANCH_ID;
   }
 
   function applyPanelState() {
@@ -354,7 +354,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function getBranchName(branchId) {
     const branch = state.branches.find((item) => item.id === branchId);
-    return branch ? branch.name : SurfDiaryStore.DEFAULT_BRANCH_NAME;
+    return branch ? branch.name : NoteFragmentsStore.DEFAULT_BRANCH_NAME;
   }
 
   function getBlockById(blockId) {
@@ -980,7 +980,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const safeIndex = Math.max(0, Math.min(insertIndex, visibleBlocks.length));
     const newSortOrder = computeInsertOrder(visibleBlocks, safeIndex);
 
-    await SurfDiaryStore.updateBlock(sourceId, {
+    await NoteFragmentsStore.updateBlock(sourceId, {
       sortOrder: newSortOrder
     });
     await loadState();
@@ -1054,9 +1054,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     try {
-      await SurfDiaryStore.saveBlock({
+      await NoteFragmentsStore.saveBlock({
         type: 'text',
-        branchId: target.branchId || source.branchId || SurfDiaryStore.DEFAULT_BRANCH_ID,
+        branchId: target.branchId || source.branchId || NoteFragmentsStore.DEFAULT_BRANCH_ID,
         sortOrder: typeof target.sortOrder === 'number' ? target.sortOrder : new Date(target.createdAt).getTime(),
         content: {
           text: mergedText
@@ -1069,8 +1069,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
 
-      await SurfDiaryStore.deleteBlock(source.id);
-      await SurfDiaryStore.deleteBlock(target.id);
+      await NoteFragmentsStore.deleteBlock(source.id);
+      await NoteFragmentsStore.deleteBlock(target.id);
       await loadState();
     } catch (error) {
       console.error('Failed to merge blocks', error);
@@ -1299,7 +1299,7 @@ document.addEventListener('DOMContentLoaded', () => {
       option.textContent = branch.name;
       branchSelect.appendChild(option);
     });
-    branchSelect.value = block.branchId || SurfDiaryStore.DEFAULT_BRANCH_ID;
+    branchSelect.value = block.branchId || NoteFragmentsStore.DEFAULT_BRANCH_ID;
     form.appendChild(makeField('Branch', branchSelect));
 
     let titleInput = null;
@@ -1433,7 +1433,7 @@ document.addEventListener('DOMContentLoaded', () => {
           };
         }
 
-        await SurfDiaryStore.updateBlock(block.id, updates);
+        await NoteFragmentsStore.updateBlock(block.id, updates);
         await loadState();
       } catch (e) {
         console.error('Failed to update block', e);
@@ -1451,7 +1451,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function deleteBlock(block) {
     try {
-      await SurfDiaryStore.deleteBlock(block.id);
+      await NoteFragmentsStore.deleteBlock(block.id);
       await loadState();
     } catch (e) {
       console.error('Failed to delete block', e);
@@ -1460,14 +1460,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Listen for changes from the background script (Context Menu)
   browser.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && changes.surfdiaryState) {
+    if (area === 'local' && changes.noteFragmentsState) {
       loadState();
     }
   });
 
   browser.runtime.onMessage.addListener((message) => {
-    if (message && message.type === 'surfdiary-state-changed') {
+    if (message && message.type === 'notefragments-state-changed') {
       loadState();
     }
   });
 });
+

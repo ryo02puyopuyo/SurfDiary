@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>SurfDiary Options</title>
+  <title>NoteFragments Options</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="options.css">
 </head>
 <body>
   <main class="options-shell">
     <section class="hero">
-      <p class="eyebrow">SurfDiary Options</p>
+      <p class="eyebrow">NoteFragments Options</p>
       <h1>Local Access Settings</h1>
       <p class="lede">This page prepares the settings needed for local file access. The controls are wired to storage, but file I/O itself will be added in the next step.</p>
     </section>
@@ -18,7 +18,7 @@
       <div class="panel-header">
         <div>
           <h2>Local Files</h2>
-          <p>Set the local path and how SurfDiary is allowed to read and write it.</p>
+          <p>Set the local path and how NoteFragments is allowed to read and write it.</p>
         </div>
         <span class="status-pill">Stored locally</span>
       </div>
@@ -26,7 +26,7 @@
       <div class="setting-grid">
         <div class="setting-row full">
           <label class="setting-label" for="local-root-path">Local root path</label>
-          <input id="local-root-path" class="setting-input" type="text" placeholder="C:\\Users\\you\\Documents\\SurfDiary" />
+          <input id="local-root-path" class="setting-input" type="text" placeholder="C:\\Users\\you\\Documents\\NoteFragments" />
           <p class="setting-hint">This is the folder where documents will be read from and written to later.</p>
         </div>
 
@@ -55,7 +55,7 @@
             <option value="downloads">Downloads API</option>
             <option value="manual">Manual export/import</option>
           </select>
-          <p class="setting-hint">The transport decides how SurfDiary will eventually talk to the local filesystem.</p>
+          <p class="setting-hint">The transport decides how NoteFragments will eventually talk to the local filesystem.</p>
         </div>
       </div>
 
@@ -91,7 +91,7 @@
     </section>
   </main>
   <script src="../shared/webext-compat.js"></script>
-  <script src="../shared/surfdiary-config.js"></script>
+  <script src="../shared/notefragments-config.js"></script>
   <script src="options.js"></script>
 </body>
 </html>
