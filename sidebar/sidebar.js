@@ -1134,7 +1134,7 @@
     }
 
     const ext = guessImageExtension(imageUrl, imageMimeType);
-    const baseName = sanitizeFileName(getBlockTitle(block) || 'surfdiary-image');
+    const baseName = sanitizeFileName(getBlockTitle(block) || 'notefragments-image');
     return `${baseName}${ext}`;
   }
 
@@ -1207,7 +1207,7 @@
   async function saveBlobAsFile(blob, fileName, kind = 'image') {
     if (typeof window.showSaveFilePicker === 'function') {
       const handle = await window.showSaveFilePicker({
-        id: `surfdiary-${kind}-save`,
+        id: `notefragments-${kind}-save`,
         suggestedName: fileName,
         startIn: 'pictures',
         types: [{

@@ -224,7 +224,7 @@ function guessImageFileName(imageUrl, mimeType = '') {
   }
 
   const ext = guessImageExtension(imageUrl, mimeType);
-  return `surfdiary-image${ext}`;
+  return `notefragments-image${ext}`;
 }
 
 function guessImageExtension(imageUrl, mimeType = '') {

@@ -1,7 +1,7 @@
 {
   "name": "notefragments",
   "version": "1.0.0",
-  "description": "A browser-integrated memo and diary tool.",
+  "description": "A browser-integrated fragment and notes tool.",
   "main": "index.js",
   "scripts": {
     "start": "node scripts/run-web-ext.cjs",

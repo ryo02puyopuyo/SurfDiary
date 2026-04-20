@@ -81,6 +81,11 @@ body {
   gap: 10px;
 }
 
+.documents-section {
+  flex: 1.2 1 0;
+  min-height: 260px;
+}
+
 .memo-item,
 .document-item {
   background-color: #ffffff;
@@ -191,8 +196,7 @@ body {
   letter-spacing: 0.4px;
 }
 
-.memo-actions,
-.document-actions {
+.memo-actions {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;

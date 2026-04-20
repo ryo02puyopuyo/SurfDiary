@@ -17,7 +17,7 @@
 
   const state = {
     config: null,
-    pickerId: 'surfdiary-local-export'
+    pickerId: 'notefragments-local-export'
   };
 
   setPickerLog('Options script loaded.');
@@ -154,7 +154,7 @@
     try {
       const handle = await window.showSaveFilePicker({
         id: state.pickerId,
-        suggestedName: 'Untitled Diary.md',
+        suggestedName: 'Untitled Document.md',
         startIn: 'documents',
         types: [{
           description: 'Markdown',

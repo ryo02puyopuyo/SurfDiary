@@ -172,7 +172,7 @@
 
     return {
       id: document.id || createId('doc'),
-      title: document.title || 'Untitled Diary',
+      title: document.title || 'Untitled Document',
       blockIds: Array.isArray(document.blockIds) ? document.blockIds.slice() : [],
       markdown: typeof document.markdown === 'string' ? document.markdown : '',
       createdAt,

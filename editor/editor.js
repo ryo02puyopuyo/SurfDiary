@@ -22,14 +22,13 @@
   const exportHelpConfirmBtn = document.getElementById('export-guidance-confirm-btn');
   const exportHelpDontShowAgain = document.getElementById('export-guidance-dont-show-again');
   const exportHelpActions = document.querySelector('.export-help-actions');
-  const clearDocumentBtn = document.getElementById('clear-document-btn');
   const previewObjectUrls = [];
-  const EXPORT_FILE_PICKER_ID = 'surfdiary-document-export-file';
-  const EXPORT_DIR_PICKER_ID = 'surfdiary-document-export-dir';
+  const EXPORT_FILE_PICKER_ID = 'notefragments-document-export-file';
+  const EXPORT_DIR_PICKER_ID = 'notefragments-document-export-dir';
   const ASSET_DIR_NAME = 'NFAssets';
   const SENSITIVE_EXPORT_DIRECTORY_NAMES = new Set(['desktop', 'downloads']);
-  const LAYOUT_STORAGE_KEY = 'surfdiary-editor-layout';
-  const EXPORT_HELP_STORAGE_KEY = 'surfdiary-export-help-hidden';
+  const LAYOUT_STORAGE_KEY = 'notefragments-editor-layout';
+  const EXPORT_HELP_STORAGE_KEY = 'notefragments-export-help-hidden';
   const EDITOR_SPLITTER_WIDTH = 10;
   const EDITOR_SPLITTER_GAP = 16;
   const MIN_PANEL_RATIO = 30;
@@ -150,10 +149,6 @@
     });
   }
 
-  if (clearDocumentBtn) {
-    clearDocumentBtn.addEventListener('click', clearCurrentDocument);
-  }
-
   if (togglePreviewBtn) {
     togglePreviewBtn.addEventListener('click', () => {
       togglePreviewCollapsed();
@@ -199,12 +194,16 @@
       renderBlockList();
       renderDocumentList();
 
-      if (!state.currentDocumentId && state.documents.length > 0) {
-        loadDocumentIntoEditor(state.documents[0].id);
-      } else {
-        syncEditorState();
-        refreshStatus();
+      if (state.currentDocumentId) {
+        const currentExists = state.documents.some((item) => item.id === state.currentDocumentId);
+        if (!currentExists) {
+          createNewDocument();
+          return;
+        }
       }
+
+      syncEditorState();
+      refreshStatus();
     } catch (error) {
       console.error('Failed to load editor state', error);
     }
@@ -564,16 +563,7 @@
       insertBlockIntoDocument(block.id, getTextInsertionPoint());
     });
 
-    const placeBtn = document.createElement('button');
-    placeBtn.type = 'button';
-    placeBtn.className = 'memo-action-btn';
-    placeBtn.textContent = state.currentDocumentBlockIds.includes(block.id) ? 'Placed' : 'Place';
-    placeBtn.addEventListener('click', () => {
-      insertBlockIntoDocument(block.id, getTextInsertionPoint());
-    });
-
     actions.appendChild(addBtn);
-    actions.appendChild(placeBtn);
     meta.appendChild(actions);
     body.appendChild(meta);
     el.appendChild(body);
@@ -596,64 +586,63 @@
       return;
     }
 
-    state.documents.forEach((document) => {
-      documentList.appendChild(createDocumentCard(document));
+    state.documents.forEach((savedDocument) => {
+      documentList.appendChild(createDocumentCard(savedDocument));
     });
   }
 
-  function createDocumentCard(document) {
+  function createDocumentCard(savedDocument) {
     const el = document.createElement('article');
-    el.className = 'document-item';
-    if (document.id === state.currentDocumentId) {
+    el.className = 'memo-item document-item';
+    if (savedDocument.id === state.currentDocumentId) {
       el.classList.add('is-active');
     }
 
     const head = document.createElement('div');
-    head.className = 'document-head';
+    head.className = 'memo-head';
 
     const titleWrap = document.createElement('div');
 
     const title = document.createElement('h3');
-    title.className = 'document-title';
-    title.textContent = document.title || 'Untitled Diary';
+    title.className = 'memo-title';
+    title.textContent = savedDocument.title || 'Untitled Document';
     titleWrap.appendChild(title);
 
-    const meta = document.createElement('p');
-    meta.className = 'document-meta';
-    meta.textContent = `${Array.isArray(document.blockIds) ? document.blockIds.length : 0} placed fragments`;
-    titleWrap.appendChild(meta);
+    const excerptMeta = document.createElement('p');
+    excerptMeta.className = 'document-meta';
+    excerptMeta.textContent = `${Array.isArray(savedDocument.blockIds) ? savedDocument.blockIds.length : 0} placed fragments`;
+    titleWrap.appendChild(excerptMeta);
 
     head.appendChild(titleWrap);
 
     const stateBadge = document.createElement('div');
-    stateBadge.className = 'document-state';
-    stateBadge.textContent = document.id === state.currentDocumentId ? 'Editing' : 'Saved';
+    stateBadge.className = 'branch-badge';
+    stateBadge.textContent = savedDocument.id === state.currentDocumentId ? 'Editing' : 'Saved';
     head.appendChild(stateBadge);
-
     el.appendChild(head);
+
+    const excerpt = document.createElement('p');
+    excerpt.className = 'memo-snippet';
+    excerpt.textContent = getDocumentExcerpt(savedDocument);
+
+    const body = document.createElement('div');
+    body.className = 'memo-body';
+    body.appendChild(excerpt);
 
     const details = document.createElement('p');
     details.className = 'document-meta';
-    details.textContent = `Updated ${formatDate(document.updatedAt || document.createdAt)}`;
-    el.appendChild(details);
+    details.textContent = `Updated ${formatDate(savedDocument.updatedAt || savedDocument.createdAt)}`;
+    body.appendChild(details);
 
     const actions = document.createElement('div');
-    actions.className = 'document-actions';
+    actions.className = 'memo-actions';
 
-    const loadBtn = document.createElement('button');
-    loadBtn.type = 'button';
-    loadBtn.className = 'memo-action-btn primary';
-    loadBtn.textContent = 'Load';
-    loadBtn.addEventListener('click', () => {
-      loadDocumentIntoEditor(document.id);
-    });
-
-    const exportBtn = document.createElement('button');
-    exportBtn.type = 'button';
-    exportBtn.className = 'memo-action-btn';
-    exportBtn.textContent = 'Export';
-    exportBtn.addEventListener('click', async () => {
-      await exportDocument(document);
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'memo-action-btn primary';
+    editBtn.textContent = 'Edit';
+    editBtn.addEventListener('click', async () => {
+      await openDocumentForEditing(savedDocument.id);
     });
 
     const deleteBtn = document.createElement('button');
@@ -661,14 +650,43 @@
     deleteBtn.className = 'memo-action-btn danger';
     deleteBtn.textContent = 'Delete';
     deleteBtn.addEventListener('click', () => {
-      deleteDocument(document.id);
+      deleteDocument(savedDocument.id);
     });
 
-    actions.appendChild(loadBtn);
-    actions.appendChild(exportBtn);
+    actions.appendChild(editBtn);
     actions.appendChild(deleteBtn);
-    el.appendChild(actions);
+    const meta = document.createElement('div');
+    meta.className = 'memo-meta';
+
+    const leftMeta = document.createElement('div');
+    leftMeta.className = 'memo-meta-left';
+    meta.appendChild(leftMeta);
+    meta.appendChild(actions);
+
+    body.appendChild(meta);
+    el.appendChild(body);
     return el;
+  }
+
+  function getDocumentExcerpt(savedDocument) {
+    const text = String(savedDocument && savedDocument.markdown ? savedDocument.markdown : '')
+      .replace(/\r/g, '')
+      .replace(/!\[[^\]]*\]\([^)]+\)/g, '[image]')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1')
+      .replace(/^#+\s*/gm, '')
+      .trim();
+
+    if (!text) {
+      return 'No content yet.';
+    }
+
+    const lines = text
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .slice(0, 3);
+
+    return lines.join('\n');
   }
 
   function syncEditorState() {
@@ -719,7 +737,7 @@
 
     if (state.currentDocumentId) {
       const current = state.documents.find((document) => document.id === state.currentDocumentId);
-      documentStatus.textContent = current ? `Editing: ${current.title}` : 'Editing saved diary';
+      documentStatus.textContent = current ? `Editing: ${current.title}` : 'Editing saved document';
       return;
     }
 
@@ -744,15 +762,29 @@
     refreshStatus();
   }
 
-  function clearCurrentDocument() {
-    state.currentDocumentBlockIds = [];
-    if (documentBody) {
-      documentBody.value = '';
+  async function openDocumentForEditing(documentId) {
+    if (!documentId) {
+      return;
     }
-    markDirty();
-    renderCounts();
-    renderBlockList();
-    renderMarkdownPreview();
+
+    if (documentId === state.currentDocumentId && !state.isDirty) {
+      return;
+    }
+
+    const shouldContinue = confirmDiscardUnsavedChanges();
+    if (!shouldContinue) {
+      return;
+    }
+
+    await loadDocumentIntoEditor(documentId);
+  }
+
+  function confirmDiscardUnsavedChanges() {
+    if (!state.isDirty) {
+      return true;
+    }
+
+    return window.confirm('現在のドキュメントは未保存です。保存せずに別のドキュメントを開きますか?');
   }
 
   function insertBlockIntoDocument(blockId, cursorIndex) {
@@ -1287,7 +1319,7 @@
       saveBlockPlacementState();
       const title = documentTitleInput && documentTitleInput.value.trim()
         ? documentTitleInput.value.trim()
-        : 'Untitled Diary';
+        : 'Untitled Document';
       const markdown = markdownForCurrentDocument();
       const payload = {
         id: state.currentDocumentId || undefined,
@@ -1343,7 +1375,7 @@
 
   async function deleteDocument(documentId) {
     try {
-      const confirmed = window.confirm('Delete this diary?');
+      const confirmed = window.confirm('Delete this document?');
       if (!confirmed) {
         return;
       }
@@ -1364,12 +1396,12 @@
   }
 
   async function exportDocument(documentData) {
-    const title = (documentData && documentData.title) || (documentTitleInput && documentTitleInput.value.trim()) || 'Untitled Diary';
+    const title = (documentData && documentData.title) || (documentTitleInput && documentTitleInput.value.trim()) || 'Untitled Document';
     const markdown = documentData
       ? documentData.markdown || ''
       : markdownForCurrentDocument();
     const exportBlocks = getDocumentExportBlocks(documentData);
-    const fileName = `${sanitizeFileName(title) || 'untitled-diary'}.md`;
+    const fileName = `${sanitizeFileName(title) || 'untitled-document'}.md`;
 
     // Always use a folder-based export so the same save flow works with or without images.
     if (typeof window.showDirectoryPicker === 'function') {
@@ -1480,7 +1512,7 @@
   async function ensureUniqueDirectoryFileName(directoryHandle, desiredFileName) {
     const normalizedName = sanitizeFileName(desiredFileName).trim();
     if (!normalizedName) {
-      return 'untitled-diary.md';
+      return 'untitled-document.md';
     }
 
     const { baseName, extension } = splitFileName(normalizedName);
@@ -1509,7 +1541,7 @@
       '回避方法:',
       '・Desktop / Downloads の中に新しい通常フォルダを作る',
       '・そのサブフォルダを選んで保存する',
-      '・例: Desktop\\NoteFragments や Downloads\\Diary',
+      '・例: Desktop\\NoteFragments や Downloads\\Notes',
       '',
       'NFAssets も、そのサブフォルダの中に作成されます。'
     ].filter(Boolean).join('\n');
@@ -1690,7 +1722,7 @@
     const lastDotIndex = normalized.lastIndexOf('.');
     if (lastDotIndex <= 0) {
       return {
-        baseName: normalized || 'untitled-diary',
+        baseName: normalized || 'untitled-document',
         extension: ''
       };
     }
@@ -1821,7 +1853,7 @@
     }
 
     await exportDocument({
-      title: documentTitleInput && documentTitleInput.value.trim() ? documentTitleInput.value.trim() : 'Untitled Diary',
+      title: documentTitleInput && documentTitleInput.value.trim() ? documentTitleInput.value.trim() : 'Untitled Document',
       markdown: markdownForCurrentDocument()
     });
   }
@@ -1834,15 +1866,6 @@
       .slice(0, 80);
   }
 
-  function clearCurrentDocument() {
-    state.currentDocumentBlockIds = [];
-    if (documentBody) {
-      documentBody.value = '';
-    }
-    markDirty();
-    renderCounts();
-    renderBlockList();
-    renderMarkdownPreview();
-  }
 });
+
 
